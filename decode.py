@@ -35,6 +35,13 @@ def ReadFile():
 class SpacePacketDecoder:
     def __init__(self, filePath):
         self.binFile = open(filePath, 'rb')
+        self.hCode = 0
+        self.hCodeBitsSize = 0
+        self.hCodeInterceptCnt = 0
+        self.readHCodeCnt = 0
+        self.bitRateCodeList = []
+        self.thresholdIndexList= []
+        
         size = os.path.getsize(filePath)
         print('open file size:', size)
     
@@ -86,28 +93,154 @@ class SpacePacketDecoder:
     def getBytesFromBinFile(self, numOfBytes):
         return self.binFile.read(numOfBytes)
 
+
+    def interceptHCodeBits(self, num):
+        while self.hCodeBitsSize < num:
+            self.fillHCodeByBinFile()
+
+        bits = self.hCode >> (self.hCodeBitsSize - num)
+        # print("hCode:", '{:010b}'.format(self.hCode), " bits:", bits, " num:", num, " self.hCodeBitsSize:", self.hCodeBitsSize)
+        self.hCodeInterceptCnt += num
+        self.remainHCode(self.hCodeBitsSize - num)
+        return bits
+
+
+    def interceptHCodeFirstBit(self):
+        return self.interceptHCodeBits(1)
+
+
+    def fillHCodeByBinFile(self):
+        hCode0 = int.from_bytes(self.getBytesFromBinFile(1), byteorder='big')
+        self.hCode = self.hCode << 8
+        self.hCode = self.hCode | hCode0
+        self.hCodeBitsSize += 8
+        self.readHCodeCnt += 8
+        
+
+
+    def remainHCode(self, num):
+        mask = 0xffff >> (16 - num)
+        self.hCode = mask & self.hCode
+        self.hCodeBitsSize = num
+        
+
+    def processHCodeDummies(self):
+        dummiesLength = 16 - self.hCodeInterceptCnt % 16
+        if dummiesLength == 16:
+            return
+        print("hCode:",self.hCode, " hCodeSize:", self.hCodeBitsSize, " dummiesLength:", dummiesLength, " self.readHCodeCnt:", self.readHCodeCnt, "self.hCodeInterceptCnt:", self.hCodeInterceptCnt)
+        self.interceptHCodeBits(dummiesLength)
+
     def prepareUserDataFiled(self):
+
         # decode IE Huffmann Codes 
-        for i in range(1):
-            byte0 = self.getBytesFromBinFile(1)
-            firstByte = int.from_bytes(byte0, byteorder='big')
-            bitRateCode = firstByte >> 5
-            showBinaryFirstByte = '{:08b}'.format(firstByte)
-            print("showBinaryFirstByte:", showBinaryFirstByte, " bitRateCode:", bitRateCode, " firstByte:", firstByte)
+        iESignList, iEMCodeList = self.decodeIEHuffmannCodes()
+        self.processHCodeDummies()
+
+        # decode IO Huffmann Codes
+        iOSignList, iOMCodeList = self.decodeIOorQOHuffmannCodes()
+        self.processHCodeDummies()
+
+        # decode QE
+        qESignList, qEMCodeList = self.decodeQEHuffmannCodes()
+        self.processHCodeDummies()
+
+        # decode QO
+        qOSignList, qOMCodeList = self.decodeIOorQOHuffmannCodes()
+        self.processHCodeDummies()
+
+
+    def saveTHIDX(self, thidx):
+        self.thresholdIndexList.append(thidx)
+    
+    def saveBRC(self, brc):
+        self.bitRateCodeList.append(brc)
+    
+    def decodeIEHuffmannCodes(self):
+        signList = []
+        mCodeList = []
+        while(1):
+            mCodeQuantity = 128
+            if (self.NumberOfQuads - len(signList)) / 128 < 1:
+                mCodeQuantity = self.NumberOfQuads - len(signList)
+
+            bitRateCode = self.interceptHCodeBits(3)
+            self.saveBRC(bitRateCode)
+
+            if bitRateCode == 0:
+                signList0, mCodeList0 = self.huffmanDecode4BRC0(mCodeQuantity)
+                # print("NumberOfQuads:%d, signList0:%d" % (self.NumberOfQuads, len(signList)))
+            # TODO: other BRC Algorithm
+            else:
+                print("Other BRC! %d" % bitRateCode)
             
-            hCode = firstByte & 0b00011111
-            hCodeBitsSize = 5
-            # showBinaryHCode = '{:08b}'.format(hCode)
-            # print("showBinaryHCode:", showBinaryHCode)
-
-            signList, mCodeList = self.huffmanDecode(bitRateCode, hCode, hCodeBitsSize)
-
-                
-    def huffmanDecode(self, bitRateCode, hCode, hCodeBitsSize):
-        if bitRateCode == 0:
-                signList, mCodeList = self.huffmanDecode4BRC0(hCode, hCodeBitsSize)
+            # print("hCode:", self.hCode, " hCodeSize:", self.hCodeBitsSize)
+            signList += signList0
+            mCodeList += mCodeList0
+            if len(signList) >= self.NumberOfQuads:
+                print("Already Get %d MCode! len signList is %d" % (self.NumberOfQuads, len(signList)))
+                break
         return signList, mCodeList
+
+
+    def decodeIOorQOHuffmannCodes(self):
+        signList = []
+        mCodeList = []
+        i = 0
+        while(1):
+            mCodeQuantity = 128
+            if (self.NumberOfQuads - len(signList)) / 128 < 1:
+                mCodeQuantity = self.NumberOfQuads - len(signList)
+
+            bitRateCode = self.bitRateCodeList[i]
+            if bitRateCode == 0:
+                signList0, mCodeList0 = self.huffmanDecode4BRC0(mCodeQuantity)
+                # print("NumberOfQuads:%d, signList0:%d" % (self.NumberOfQuads, len(signList)))
+            # TODO: other BRC Algorithm
+            else:
+                print("Other BRC! %d" % bitRateCode)
             
+            # print("hCode:", self.hCode, " hCodeSize:", self.hCodeBitsSize)
+            signList += signList0
+            mCodeList += mCodeList0
+            i += 1
+
+            if len(signList) >= self.NumberOfQuads:
+                print("Already Get %d MCode! len signList is %d" % (self.NumberOfQuads, len(signList)))
+                break
+        return signList, mCodeList
+    
+
+    def decodeQEHuffmannCodes(self):
+        signList = []
+        mCodeList = []
+        i = 0
+        while(1):
+            mCodeQuantity = 128
+            if (self.NumberOfQuads - len(signList)) / 128 < 1:
+                mCodeQuantity = self.NumberOfQuads - len(signList)
+
+            thidx0 = self.interceptHCodeBits(8)
+            self.saveTHIDX(thidx0)
+
+            bitRateCode = self.bitRateCodeList[i]
+            if bitRateCode == 0:
+                signList0, mCodeList0 = self.huffmanDecode4BRC0(mCodeQuantity)
+                # print("NumberOfQuads:%d, signList0:%d" % (self.NumberOfQuads, len(signList)))
+            # TODO: other BRC Algorithm
+            else:
+                print("Other BRC! %d" % bitRateCode)
+            
+            # print("hCode:", self.hCode, " hCodeSize:", self.hCodeBitsSize)
+            signList += signList0
+            mCodeList += mCodeList0
+            i += 1
+
+            if len(signList) >= self.NumberOfQuads:
+                print("Already Get %d MCode! len signList is %d" % (self.NumberOfQuads, len(signList)))
+                break
+        return signList, mCodeList
+        
 
     # Raw Data -> Huffmann Decoding, Get Sample Code
     # BRC = 0时
@@ -116,62 +249,35 @@ class SpacePacketDecoder:
     # 10        1
     # 110       2
     # 111       3     
-    def huffmanDecode4BRC0(self, hCode, hCodeBitsSize):
+    def huffmanDecode4BRC0(self, mCodeQuantity):
         signList = []
         mCodeList = []
-        for i in range(130):
-            if hCodeBitsSize < 4:
-                newByte0 = int.from_bytes(self.getBytesFromBinFile(1), byteorder='big')
-                # print("newByte0:", '{:08b}'.format(newByte0))
-                hCode = hCode << 8
-                hCode = hCode | newByte0
-                hCodeBitsSize += 8
 
-            sign = 0
+        # one BRC + 128 HCode
+        for i in range(mCodeQuantity):
             mCode = -1
-            mCodeLength = -1
-            signFlag = (1 << hCodeBitsSize - 1)
-            if hCode & signFlag == signFlag:
-                sign = -1
-            else:
-                sign = 1
+            sign = (-1) * self.interceptHCodeFirstBit()
 
-            haffmannOffset = (hCodeBitsSize - 1 - 3)
-
-            haffmannMask0 = 0b100 << haffmannOffset
-            haffmannCode0 = 0
-            
-            haffmannMask1 = 0b110 << haffmannOffset
-            haffmannCode1 = 0b100 << haffmannOffset
-
-            haffmannMask2 = 0b111 << haffmannOffset
-            haffmannCode2 = 0b110 << haffmannOffset
-
-            haffmannMask3 = haffmannMask2
-            haffmannCode3 = 0b111 << haffmannOffset
-
-            if hCode & haffmannMask0 == haffmannCode0:
+            bit0 = self.interceptHCodeFirstBit()
+            if bit0 == 0:
                 mCode = 0
-                mCodeLength = 1
-            if hCode & haffmannMask1 == haffmannCode1:
-                mCode = 1
-                mCodeLength = 2
-            if hCode & haffmannMask2 == haffmannCode2:
-                mCode = 2
-                mCodeLength = 3
-            if hCode & haffmannMask3 == haffmannCode3:
-                mCode = 3
-                mCodeLength = 3
+            else:
+                bit0 = self.interceptHCodeFirstBit()
+                if bit0 == 0:
+                    mCode = 1
+                else:
+                    bit0 = self.interceptHCodeFirstBit()
+                    if bit0 == 0:
+                        mCode = 2
+                    else:
+                        mCode = 3
 
-            if mCode == -1 or sign == 0:
+            if mCode == -1:
                 print("ERROR|mCode is error!")
-            # print("sign:", sign, " mCode:", mCode, " mCodeLength:", mCodeLength)
-            hCodeBitsSize -= (1 + mCodeLength)
-            mask = 0xffff >> (16 - hCodeBitsSize)
-            hCode = mask & hCode
-            mCodeList.append(mCode)
+            # print("sign:", sign, " mCode:", mCode)
             signList.append(sign)
-            print("list len:", len(mCodeList))
+            mCodeList.append(mCode)
+                       
         return signList, mCodeList
 
 
