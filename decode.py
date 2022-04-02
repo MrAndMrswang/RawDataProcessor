@@ -99,24 +99,43 @@ class SpacePacketDecoder:
         print("hCode:",self.hCode, " hCodeSize:", self.hCodeBitsSize, " dummiesLength:", dummiesLength, " self.readHCodeBitCnt:", self.readHCodeBitCnt, "self.hCodeBitInterceptCnt:", self.hCodeBitInterceptCnt)
         self.interceptHCodeBits(dummiesLength)
 
+    def reconstructionFDBQA(self, signList, mCodeList):
+        reslist0 = []
+        for i in range(len(signList)):
+            # sampleReconstruction(self, brc, thidx, sign, mCode)
+            brcIndx = int(i/128)
+            res = self.sampleReconstruction(
+                    self.bitRateCodeList[brcIndx], 
+                    self.thresholdIndexList[brcIndx], 
+                    signList[i],
+                    mCodeList[i])
+            reslist0.append(res)
+
+        return reslist0
+            
 
     def prepareUserDataFiled(self):
 
         # decode IE Huffmann Codes 
-        iESignList, iEMCodeList = self.decodeIEHuffmannCodes()
+        iESignList, iEMCodeList = self.getIEMCode()
         self.processHCodeDummies()
-
+        
         # decode IO Huffmann Codes
-        iOSignList, iOMCodeList = self.decodeIOorQOHuffmannCodes()
+        iOSignList, iOMCodeList = self.getIOorQOMCode()
         self.processHCodeDummies()
 
         # decode QE
-        qESignList, qEMCodeList = self.decodeQEHuffmannCodes()
+        qESignList, qEMCodeList = self.getQEMCode()
         self.processHCodeDummies()
 
         # decode QO
-        qOSignList, qOMCodeList = self.decodeIOorQOHuffmannCodes()
+        qOSignList, qOMCodeList = self.getIOorQOMCode()
         self.processHCodeDummies()
+
+        iEValueList = self.reconstructionFDBQA(iESignList, iEMCodeList)
+        iOValueList = self.reconstructionFDBQA(iOSignList, iOMCodeList)
+        qEValueList = self.reconstructionFDBQA(qESignList, qEMCodeList)
+        qOValueList = self.reconstructionFDBQA(qOSignList, qOMCodeList)
 
         print("Prepare All Data|HCodeIntercept:%d readHCodeBitCnt:%d" % (self.hCodeBitInterceptCnt, self.readHCodeBitCnt))
 
@@ -128,7 +147,7 @@ class SpacePacketDecoder:
     def saveBRC(self, brc):
         self.bitRateCodeList.append(brc)
     
-    def decodeIEHuffmannCodes(self):
+    def getIEMCode(self):
         signList = []
         mCodeList = []
         while(1):
@@ -155,7 +174,7 @@ class SpacePacketDecoder:
         return signList, mCodeList
 
 
-    def decodeIOorQOHuffmannCodes(self):
+    def getIOorQOMCode(self):
         signList = []
         mCodeList = []
         i = 0
@@ -183,7 +202,7 @@ class SpacePacketDecoder:
         return signList, mCodeList
     
 
-    def decodeQEHuffmannCodes(self):
+    def getQEMCode(self):
         signList = []
         mCodeList = []
         i = 0
@@ -279,11 +298,11 @@ class SpacePacketDecoder:
             else:
                 bThidx = fDBQASimpleReconstructionParam[thidx][brc]
                 res = sign * bThidx
-                print("bThidx:", bThidx)
+                # print("bThidx:", bThidx)
         else: 
             nrl = normalisedReconstructionLevels[mCode][brc]
             sf = sigmaFactors[thidx]
-            print("nrl:", nrl, " sf:", sf)
+            # print("nrl:", nrl, " sf:", sf)
             res = sign * nrl * sf
         
         return res
