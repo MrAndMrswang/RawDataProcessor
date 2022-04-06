@@ -132,13 +132,28 @@ class SpacePacketDecoder:
         qOSignList, qOMCodeList = self.getIOorQOMCode()
         self.processHCodeDummies()
 
-        iEValueList = self.reconstructionFDBQA(iESignList, iEMCodeList)
-        iOValueList = self.reconstructionFDBQA(iOSignList, iOMCodeList)
-        qEValueList = self.reconstructionFDBQA(qESignList, qEMCodeList)
-        qOValueList = self.reconstructionFDBQA(qOSignList, qOMCodeList)
+        self._iEValueList = self.reconstructionFDBQA(iESignList, iEMCodeList)
+        self._iOValueList = self.reconstructionFDBQA(iOSignList, iOMCodeList)
+        self._qEValueList = self.reconstructionFDBQA(qESignList, qEMCodeList)
+        self._qOValueList = self.reconstructionFDBQA(qOSignList, qOMCodeList)
 
         print("Prepare All Data|HCodeIntercept:%d readHCodeBitCnt:%d" % (self.hCodeBitInterceptCnt, self.readHCodeBitCnt))
+        
+    @property
+    def iEValueList(self):
+        return self._iEValueList
+    
+    @property
+    def iOValueList(self):
+        return self._iOValueList
 
+    @property
+    def qEValueList(self):
+        return self._qEValueList
+
+    @property
+    def qOValueList(self):
+        return self._qOValueList
 
 
     def saveTHIDX(self, thidx):
