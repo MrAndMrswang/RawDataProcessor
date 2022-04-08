@@ -1,5 +1,7 @@
 import os
 
+
+# 生成space packet
 class SpacePacketDecoder:
     def __init__(self, filePath):
         self.binFile = open(filePath, 'rb')
@@ -8,17 +10,17 @@ class SpacePacketDecoder:
         self.hCodeBitInterceptCnt = 0
         self.readHCodeBitCnt = 0
         self.bitRateCodeList = []
-        self.thresholdIndexList= []
+        self.thresholdIndexList = []
         
         size = os.path.getsize(filePath)
         print('open file size:', size)
     
-    # Get Packet Data Length: number of octets in packet data field -1
+    # Get Packet Data Length: number of octets in packet data field-1
     # Packet Data Field consists of Packet Secondary Header and User Data Field
     # Octet Offset [0, 6)
     def preparePacketPrimaryHeader(self):
         packetPrimaryHeader = self.getBytesFromBinFile(4)
-        # get Packet Data Length
+        # get Packet Data Length, unit: Octets
         packetDataLength0 = self.getBytesFromBinFile(2)
         # showBinaryLength = '{:016b}'.format(int.from_bytes(packetDataLength, byteorder='big'))
         intpacketDataLength = int.from_bytes(packetDataLength0, byteorder='big')
@@ -59,6 +61,7 @@ class SpacePacketDecoder:
         # Octet Offset [67, 68)
         na = self.getBytesFromBinFile(1)
     
+
     def getBytesFromBinFile(self, numOfBytes):
         return self.binFile.read(numOfBytes)
 
@@ -96,7 +99,7 @@ class SpacePacketDecoder:
         dummiesLength = 16 - self.hCodeBitInterceptCnt % 16
         if dummiesLength == 16:
             return
-        print("hCode:",self.hCode, " hCodeSize:", self.hCodeBitsSize, " dummiesLength:", dummiesLength, " self.readHCodeBitCnt:", self.readHCodeBitCnt, "self.hCodeBitInterceptCnt:", self.hCodeBitInterceptCnt)
+        # print("hCode:",self.hCode, " hCodeSize:", self.hCodeBitsSize, " dummiesLength:", dummiesLength, " self.readHCodeBitCnt:", self.readHCodeBitCnt, "self.hCodeBitInterceptCnt:", self.hCodeBitInterceptCnt)
         self.interceptHCodeBits(dummiesLength)
 
     def reconstructionFDBQA(self, signList, mCodeList):
