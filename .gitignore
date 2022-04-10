@@ -1,3 +1,5 @@
 # for Sentinel-1 Data
 /data
 /__pycache__
+/log
+__pycache__/
