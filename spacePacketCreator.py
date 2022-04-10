@@ -1,5 +1,7 @@
 import os
+from util.log import getLogger
 from reconstruction import sampleReconstruction 
+
 #
 class SpacePacket:
     def __init__(self, binFile):
@@ -27,6 +29,7 @@ class SpacePacket:
         self.countersService = 0
         self.radarConfigurationSupportService = 0
         self.radarSampleCountService = 0
+        self.signalType = 0
 
 
         self.SampleValueI = []
@@ -47,8 +50,8 @@ class SpacePacket:
 
         # showBinaryLength = '{:016b}'.format(int.from_bytes(packetDataLength0, byteorder='big'))
         self.packetDataLength = int.from_bytes(packetDataLength0, byteorder='big')
-        
-        print("packetDataLength:", self.packetDataLength , " SpacePacket % 4 =", (self.packetDataLength + 6 + 1) % 4)
+        str0 = ("packetDataLength=%d|packetDataLength%%4=%d") % (self.packetDataLength ,  (self.packetDataLength + 6 + 1) % 4)
+        getLogger("spacePacketCreator").info(str0)
 
 
     def preparePacketSecondaryHeader(self):
@@ -90,14 +93,15 @@ class SpacePacket:
         testMode = self.getBytesFromBinFile(1)
         instrumentConfigurationID = self.getBytesFromBinFile(4)
         testMode_int = int.from_bytes(testMode, byteorder='big')
-        print("testMode_int:", '{:08b}'.format(testMode_int))
+        str0 = ("testMode_int=%s") % ('{:08b}'.format(testMode_int))
+        getLogger("spacePacketCreator").info(str0)
 
     #    
     def parseRadarConfigurationSupportService(self):
         
         mode0 = self.getBytesFromBinFile(1)
         mode0_int = int.from_bytes(mode0, byteorder='big')
-        print("mode0_int:", '{:08b}'.format(mode0_int))
+        getLogger("spacePacketCreator").info("mode0_int=" + '{:08b}'.format(mode0_int))
 
         baqBlockLength = self.getBytesFromBinFile(1)
 
@@ -110,12 +114,16 @@ class SpacePacket:
         # Signal Type
         signalType = self.getBytesFromBinFile(1)
         signalType_int = int.from_bytes(signalType, byteorder='big')
-        print("signalType_int:", '{:08b}'.format(signalType_int))
 
+        getLogger("spacePacketCreator").info("signalType_int=" + '{:08b}'.format(signalType_int))
+        self.signalType = (signalType_int >> 4)
 
         # Swath Number
         swathNumber = self.getBytesFromBinFile(1)
 
+    #
+    def isEcho(self):
+        return self.signalType == 0
 
     def getBytesFromBinFile(self, numOfBytes):
         return self.binFile.read(numOfBytes)
@@ -551,7 +559,7 @@ class SpacePacketCreator:
         self.binFile = open(filePath, 'rb')
         self.spacePackets = []
         size = os.path.getsize(filePath)
-        print('open file size:', size)
+        getLogger("spacePacketCreator").info("open file size:" + str(size))
     
 
     def createSpacekets(self):
@@ -559,8 +567,7 @@ class SpacePacketCreator:
         readDataSize = 0
         i = 0
         while(1):
-            print("+++++++++++++++++++++++++++++BEGIN+++++++++++++++++++++++++++++++++++++")
-            print("space packet index:", i, " readDataSize(MB):", readDataSize/1024/1024, " readDataSize(B):", readDataSize)
+            getLogger("spacePacketCreator").info("space packet index=%d|readDataSize=%dMB|%dB" % (i, readDataSize/1024/1024, readDataSize))
             spacePacket = SpacePacket(self.binFile)
 
             # Packet Primary Header
@@ -571,9 +578,13 @@ class SpacePacketCreator:
             # Packet Secondary Header
             spacePacket.preparePacketSecondaryHeader()
 
-            self.binFile.read(spacePacket.packetDataLength - 61)
-            if i > 1534:
-                break
+            i += 1
+            readDataSize += spacePacket.packetDataLength + 1 + 6
+            # 
+            if not spacePacket.isEcho():
+                getLogger("spacePacketCreator").warning("index=%d|type:%d" % (i, spacePacket.signalType))
+                self.binFile.read(spacePacket.packetDataLength - 61)
+                continue
 
             # User Data Field
             spacePacket.prepareUserDataFiled()
@@ -581,10 +592,6 @@ class SpacePacketCreator:
             # validate
             # Space Packet Length = Multiple of 4 Octets
             self.spacePackets.append(spacePacket)
-            
-            i += 1
-            readDataSize += spacePacket.packetDataLength + 1 + 6
-            print("=============================END=======================================")
 
 
 
