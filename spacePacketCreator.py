@@ -18,39 +18,14 @@ class SpacePacket:
             }
 
 
-        # Packet Primary Header
+        # space packet define
         self.packetPrimaryHeader = 0
         self.packetDataLength = 0 
-
-
-        # Packet Data Field
-        # Datation Service
-        # Octet Offset [6, 12)
         self.datationService = 0
-
-
-        # Fixed Ancillary Data Field
-        # Octet Offset [12, 26)
         self.fixedAncillaryDataField = 0
-
-
-        # Sub-commutation Ancillary Data Service Field
-        # Octet Offset [26, 29)
         self.subCommutationAncillaryDataServiceField = 0
-
-
-        # Counters Service
-        # Octet Offset [29, 37)
         self.countersService = 0
-
-
-        # Radar Configuration Support Service
-        # Octet Offset [37, 65)
         self.radarConfigurationSupportService = 0
-
-
-        # Radar Sample Count Service
-        # Octet Offset [65, 67)
         self.radarSampleCountService = 0
 
 
@@ -73,7 +48,7 @@ class SpacePacket:
         # showBinaryLength = '{:016b}'.format(int.from_bytes(packetDataLength0, byteorder='big'))
         self.packetDataLength = int.from_bytes(packetDataLength0, byteorder='big')
         
-        print("intpacketDataLength:", self.packetDataLength)
+        print("packetDataLength:", self.packetDataLength , " SpacePacket % 4 =", (self.packetDataLength + 6 + 1) % 4)
 
 
     def preparePacketSecondaryHeader(self):
@@ -83,7 +58,7 @@ class SpacePacket:
 
         # Fixed Ancillary Data Field
         # Octet Offset [12, 26)
-        self.fixedAncillaryDataField = self.getBytesFromBinFile(14)
+        self.parseFixedAncillaryDataField()
 
         # Sub-commutation Ancillary Data Service Field
         # Octet Offset [26, 29)
@@ -95,20 +70,53 @@ class SpacePacket:
 
         # Radar Configuration Support Service
         # Octet Offset [37, 65)
-        self.radarConfigurationSupportService = self.getBytesFromBinFile(28)
+        self.parseRadarConfigurationSupportService()
 
         # Radar Sample Count Service
         # Octet Offset [65, 67)
         radarSampleCountService = self.getBytesFromBinFile(2)
         numberOfQuads = int.from_bytes(radarSampleCountService, byteorder='big')
         self.NumberOfQuads = numberOfQuads
-        print("NumberOfQuads:", self.NumberOfQuads)
 
         # N/A
         # Octet Offset [67, 68)
         na = self.getBytesFromBinFile(1)
     
-    
+    # 
+    def parseFixedAncillaryDataField(self):
+        syncMarker = self.getBytesFromBinFile(4)
+        dataTakeID = self.getBytesFromBinFile(4)
+        eccNumber = self.getBytesFromBinFile(1)
+        testMode = self.getBytesFromBinFile(1)
+        instrumentConfigurationID = self.getBytesFromBinFile(4)
+        testMode_int = int.from_bytes(testMode, byteorder='big')
+        print("testMode_int:", '{:08b}'.format(testMode_int))
+
+    #    
+    def parseRadarConfigurationSupportService(self):
+        
+        mode0 = self.getBytesFromBinFile(1)
+        mode0_int = int.from_bytes(mode0, byteorder='big')
+        print("mode0_int:", '{:08b}'.format(mode0_int))
+
+        baqBlockLength = self.getBytesFromBinFile(1)
+
+        # [39, 62)
+        self.radarConfigurationSupportService = self.getBytesFromBinFile(23)
+
+        # SES SSB Data Field
+        calMode = self.getBytesFromBinFile(1)
+
+        # Signal Type
+        signalType = self.getBytesFromBinFile(1)
+        signalType_int = int.from_bytes(signalType, byteorder='big')
+        print("signalType_int:", '{:08b}'.format(signalType_int))
+
+
+        # Swath Number
+        swathNumber = self.getBytesFromBinFile(1)
+
+
     def getBytesFromBinFile(self, numOfBytes):
         return self.binFile.read(numOfBytes)
     
@@ -143,7 +151,7 @@ class SpacePacket:
             self.SampleValueI += [iEValueList[i], iOValueList[i]]
             self.sampleValueQ += [qEValueList[i], qOValueList[i]]
 
-        print("SampleValueI len:", len(self.SampleValueI), " read bits:", self.userDataCnt/8)
+        # print("SampleValueI len:", len(self.SampleValueI), " read bits:", self.userDataCnt/8)
 
 
     def interceptUserDataBits(self, num):
@@ -542,8 +550,6 @@ class SpacePacketCreator:
     def __init__(self, filePath):
         self.binFile = open(filePath, 'rb')
         self.spacePackets = []
-
-        
         size = os.path.getsize(filePath)
         print('open file size:', size)
     
@@ -553,16 +559,21 @@ class SpacePacketCreator:
         readDataSize = 0
         i = 0
         while(1):
-            print("space packet index:", i, " readDataSize:", readDataSize/1024/1024)
+            print("+++++++++++++++++++++++++++++BEGIN+++++++++++++++++++++++++++++++++++++")
+            print("space packet index:", i, " readDataSize(MB):", readDataSize/1024/1024, " readDataSize(B):", readDataSize)
             spacePacket = SpacePacket(self.binFile)
 
             # Packet Primary Header
             ok = spacePacket.preparePacketPrimaryHeader()
             if ok == False:
                 break
-
+            
             # Packet Secondary Header
             spacePacket.preparePacketSecondaryHeader()
+
+            self.binFile.read(spacePacket.packetDataLength - 61)
+            if i > 1534:
+                break
 
             # User Data Field
             spacePacket.prepareUserDataFiled()
@@ -573,6 +584,7 @@ class SpacePacketCreator:
             
             i += 1
             readDataSize += spacePacket.packetDataLength + 1 + 6
+            print("=============================END=======================================")
 
 
 
