@@ -33,8 +33,8 @@ class SpacePacket:
         self.radarConfigurationSupportService = RadarConfigurationSupportService()
 
 
-        self.SampleValueI = []
-        self.sampleValueQ = []
+        self.ISampleValue = []
+        self.QSampleValue = []
 
 
 
@@ -134,10 +134,8 @@ class SpacePacket:
         qOValueList = self.reconstructionFDBQA(qOSignList, qOMCodeList)
 
         for i in range(len(iEValueList)):
-            self.SampleValueI += [iEValueList[i], iOValueList[i]]
-            self.sampleValueQ += [qEValueList[i], qOValueList[i]]
-
-        # print("SampleValueI len:", len(self.SampleValueI), " read bits:", self.userDataCnt/8)
+            self.ISampleValue += [iEValueList[i], iOValueList[i]]
+            self.QSampleValue += [qEValueList[i], qOValueList[i]]
 
 
     def interceptUserDataBits(self, num):
