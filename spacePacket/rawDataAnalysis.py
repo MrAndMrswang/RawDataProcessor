@@ -53,7 +53,7 @@ class RawDataAnalysis:
 
 
         for packet0 in self.spacePackets:
-            if lastSWST != 0 and lastSWST != packet0.radarConfigurationSupportService.swst:
+            if lastSWST != 0 and lastSWST != packet0.radarConfigurationSupportService.SWST:
                 sqq = qSquare - math.pow(qSquare, 2) / m
                 sii = iSquare - math.pow(iSquare, 2) / m
                 siq = iqMulti - iSum * qSum / m
