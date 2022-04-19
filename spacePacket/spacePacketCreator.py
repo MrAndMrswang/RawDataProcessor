@@ -3,6 +3,7 @@ import os
 from utils.log import getLogger
 from .reconstruction import sampleReconstruction 
 from .radarConfigurationSupportService import RadarConfigurationSupportService
+from .SLCProcessing import SLCProcessor
 
 #
 class SpacePacket:
@@ -533,15 +534,19 @@ class SpacePacket:
 class SpacePacketCreator:
     def __init__(self, filePath):
         self.binFile = open(filePath, 'rb')
-        self.spacePackets = []
+        #
         size = os.path.getsize(filePath)
         getLogger("spacePacketCreator").info("open file size:" + str(size))
-    
+        # for test
+        self.spacePacketsLengthMAX = 225980
+        self.startIndex = 0
+        
 
     def createSpacekets(self):
 
         readDataSize = 0
         i = 0
+        spacketArray = []
         while(1):
             getLogger("spacePacketCreator").info("space packet index=%d|readDataSize=%dMB|%dB" % (i, readDataSize/1024/1024, readDataSize))
             spacePacket = SpacePacket(self.binFile)
@@ -557,17 +562,33 @@ class SpacePacketCreator:
             i += 1
             readDataSize += spacePacket.packetDataLength + 1 + 6
             # 
-            if not spacePacket.isEcho():
-                getLogger("spacePacketCreator").warning("index=%d|type:%d" % (i, spacePacket.radarConfigurationSupportService.signalType))
+            if not spacePacket.isEcho() or i < self.startIndex:
+                getLogger("spacePacketCreator").info("index=%d|type:%d" % (i, spacePacket.radarConfigurationSupportService.signalType))
                 self.binFile.read(spacePacket.packetDataLength - 61)
                 continue
 
             # User Data Field
             spacePacket.prepareUserDataFiled()
-
+            getLogger("spacePacketCreator").info("index=%d|ISampleValue length=%d" % (i, len(spacePacket.QSampleValue)))
             # validate
             # Space Packet Length = Multiple of 4 Octets
-            self.spacePackets.append(spacePacket)
+
+            # one list, one ISampleValue length
+            # if len(spacketArray) == 0 or len(spacketArray[0].QSampleValue) == len(spacePacket.QSampleValue):
+            if len(spacketArray) == 0 or spacketArray[0].radarConfigurationSupportService.SWL == spacePacket.   radarConfigurationSupportService.SWL:
+                spacketArray.append(spacePacket)
+            else:
+                getLogger("spacePacketCreator").info("index=%d|one kind|smaple len=%d" % 
+                    (i, len(spacePacket.QSampleValue)))
+                slcProcessor = SLCProcessor(i)
+                slcProcessor.compress(spacketArray)
+
+                spacketArray = [spacePacket]
+                
+
+            if i == self.spacePacketsLengthMAX:
+                getLogger("spacePacketCreator").info("getEnoughPackets|index=%d" % i)
+                break
 
 
 

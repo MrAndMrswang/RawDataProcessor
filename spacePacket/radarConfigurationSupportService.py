@@ -10,6 +10,7 @@ class RadarConfigurationSupportService:
         self.fref = 37.53472224 # MHz
         
 
+    # Sampling Frequency fdec after Decimation [MHz]
     def getSamplingFrequency(self, data):
         # prefix
         list0 = [3, 8/3, NaN, 20/9, 16/9, 3/2, 4/3, 2/3, 12/7, 5/4, 6/13, 16/11]
@@ -82,6 +83,6 @@ class RadarConfigurationSupportService:
         self.swathNumber = data[27]
 
         getLogger("spacePacketCreator").info(
-            ("errorFlag=%s|BAQMode=%d|baqBlockLength=%d|swst=%d|swl=%d|type=%d|swathNumber=%d") % 
-            (self.errorFlag, self.BAQMode, self.baqBlockLength, self.SWST, self.SWL, self.signalType, self.swathNumber)
+            ("errorFlag=%s|BAQMode=%d|baqBlockLength=%d|swst=%d|swl=%d|type=%d|swathNumber=%d|TXPL=%f|TXPSF=%f|FDec=%f") % 
+            (self.errorFlag, self.BAQMode, self.baqBlockLength, self.SWST, self.SWL, self.signalType, self.swathNumber, self.TXPL, self.TXPSF, self.SamplingFrequencyAfterDecimation)
         )
