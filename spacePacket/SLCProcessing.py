@@ -15,41 +15,8 @@ class SLCProcessor:
         if (len(packets) <= 700):
             return
 
-        self.tempImg(packets)
-        self.tempImgReal(packets)
-
         rangeCompressMat = self.rangeCompress(packets)
         self.azimuthCompress(rangeCompressMat)
-
-
-    def tempImg(self, packets):
-        rangelength = len(packets[0].ISampleValue)
-        azimuthLength = len(packets)        
-        tempImgComplex = np.zeros((rangelength, azimuthLength), dtype = "complex_")
-        index = 0
-        for packet in packets:
-            tempImgComplex[::, index] = np.array(packet.ISampleValue) + 1j*np.array(packet.QSampleValue)
-            index += 1
-
-        plt.figure()
-        plt.pcolor(np.abs(tempImgComplex[::3, ::3]), cmap="jet")
-        plt.colorbar()
-        plt.savefig("./pic/complex_%d.png" % self.index, dpi=500)
-
-        
-    def tempImgReal(self, packets):
-        rangelength = len(packets[0].ISampleValue)
-        azimuthLength = len(packets)        
-        tempImgReal = np.zeros((rangelength, azimuthLength))
-        index = 0
-        for packet in packets:
-            tempImgReal[::, index] = np.array(packet.ISampleValue)
-            index += 1
-
-        plt.figure()
-        plt.pcolor(tempImgReal[::3, ::3], cmap="jet")
-        plt.colorbar()
-        plt.savefig("./pic/real_%d.png" % self.index, dpi=500)
 
 
     # range compress
@@ -62,8 +29,8 @@ class SLCProcessor:
             rcss = packet.radarConfigurationSupportService
             samplePoint = rcss.SamplingFrequencyAfterDecimation * rcss.TXPL
             tim = np.linspace(-rcss.TXPL / 2, rcss.TXPL / 2,  int(samplePoint))
-            phi1 = rcss.TXPSF + rcss.TXPRR * rcss.TXPL / 2
-            phi2 = rcss.TXPRR / 2  
+            phi1 = - (rcss.TXPSF + rcss.TXPRR * rcss.TXPL / 2)
+            phi2 = - (rcss.TXPRR / 2)
             chirpReplica = np.exp(1j*2*np.pi*(phi1*tim + phi2*tim**2))
             getLogger("verbose").info("i=%d|len:%d|phi1=%f|phi2=%f" % (index, len(tim), phi1, phi2))
 
@@ -75,12 +42,6 @@ class SLCProcessor:
             resData[::, index] = res
             index += 1
         
-
-        showValue = np.abs(resData[::3, ::3])
-        plt.figure()
-        plt.pcolor(showValue, cmap="jet")
-        plt.colorbar()
-        plt.savefig("./pic/rangeCompress_%d.png" % self.index, dpi=500)
         return resData
 
 
@@ -88,33 +49,22 @@ class SLCProcessor:
     def azimuthCompress(self, rangeCompressMat):
         # get azimuth chirp
         rangelength, azimuthLength = rangeCompressMat.shape
-        tempMat = rangeCompressMat
+        tempMat = rangeCompressMat.copy()
         zeros0 = np.zeros(tempMat[::, 0:300].shape)
         tempMat[::, 0:300] = zeros0
         tempMat[::, azimuthLength-300:azimuthLength] = zeros0
-
-        
         maxPos = np.unravel_index(np.argmax(np.abs(tempMat)), tempMat.shape)
-        tempMat = []
-        # max0 = rangeCompressMat(maxPos)
-        # getLogger("SLCProcessing").info("max0=%s" % max0)
         mychirp = rangeCompressMat[maxPos[0], maxPos[1]-300 : maxPos[1]+300]
-        res = rangeCompressMat
         for i in range(rangelength):
             temp = np.correlate(mychirp, rangeCompressMat[i, ::], mode='full')
             temp = temp[math.floor(len(mychirp)/2) : 
                       azimuthLength + math.floor(len(mychirp)/2)]
-            res[i, ::] = temp
+            tempMat[i, ::] = temp
         
-        res = np.abs(res[::3, ::3])
-        # self.showData.append(showValue)
-
-        getLogger("SLCProcessing").info("showValue shape=%s, %s" % res.shape)
-
         plt.figure()
-        plt.pcolor(np.fliplr(np.flipud(res)), cmap="jet")
+        plt.pcolor(np.fliplr(np.flipud(np.abs(tempMat[::3, ::3]))), vmin = 1, vmax = 2*10**8)
         plt.colorbar()
-        plt.savefig("./pic/%d.png" % self.index, dpi=500)
+        plt.savefig("./pic/%d.png" % self.index, dpi=800)
 
 
     def test(self):

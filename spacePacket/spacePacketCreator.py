@@ -130,6 +130,7 @@ class SpacePacket:
         self.alignData(32)
 
         iEValueList = self.reconstructionFDBQA(iESignList, iEMCodeList)
+        # print("iEValueList:", iEValueList[0:10])
         iOValueList = self.reconstructionFDBQA(iOSignList, iOMCodeList)
         qEValueList = self.reconstructionFDBQA(qESignList, qEMCodeList)
         qOValueList = self.reconstructionFDBQA(qOSignList, qOMCodeList)
@@ -194,6 +195,7 @@ class SpacePacket:
     
 
     def saveBRC(self, brc):
+        # getLogger("spacePacketCreator").info("saveBRC|brc=%s" % (brc))
         self.bitRateCodeList.append(brc)
     
 
@@ -204,7 +206,6 @@ class SpacePacket:
             mCodeQuantity = 128
             if (self.NumberOfQuads - len(signList)) / mCodeQuantity < 1:
                 mCodeQuantity = self.NumberOfQuads - len(signList)
-
             bitRateCode = self.interceptUserDataBits(3)
             self.saveBRC(bitRateCode)
             signList0, mCodeList0 = self.huffmanDecode(mCodeQuantity, bitRateCode)
@@ -274,9 +275,10 @@ class SpacePacket:
 
             if mCode == -1:
                 print("ERROR|mCode is error!")
-            # print("sign:", sign, " mCode:", mCode)
+
             signList.append(sign)
             mCodeList.append(mCode)
+            # getLogger("spacePacketCreator").info("huffmanDecode|sign=%d, code=%d" % (sign, mCode))
                        
         return signList, mCodeList
     
@@ -290,7 +292,7 @@ class SpacePacket:
     # 111       3   
     def huffmanDecodeCore4BRC0(self):
         mCode = -1
-        sign = (-1) * self.interceptHCodeFirstBit()
+        sign = (-1) ** self.interceptHCodeFirstBit()
         
         # 0
         bit0 = self.interceptHCodeFirstBit()
@@ -316,7 +318,7 @@ class SpacePacket:
 
     def huffmanDecodeCore4BRC1(self):
         mCode = -1
-        sign = (-1) * self.interceptHCodeFirstBit()
+        sign = (-1) ** self.interceptHCodeFirstBit()
         
         # 0
         bit0 = self.interceptHCodeFirstBit()
@@ -348,7 +350,7 @@ class SpacePacket:
 
     def huffmanDecodeCore4BRC2(self):
         mCode = -1
-        sign = (-1) * self.interceptHCodeFirstBit()
+        sign = (-1) ** self.interceptHCodeFirstBit()
         
         # 0
         bit0 = self.interceptHCodeFirstBit()
@@ -392,7 +394,7 @@ class SpacePacket:
 
     def huffmanDecodeCore4BRC3(self):
         mCode = -1
-        sign = (-1) * self.interceptHCodeFirstBit()
+        sign = (-1) ** self.interceptHCodeFirstBit()
         
         # 0
         bit0 = self.interceptHCodeFirstBit()
@@ -451,7 +453,7 @@ class SpacePacket:
 
     def huffmanDecodeCore4BRC4(self):
         mCode = -1
-        sign = (-1) * self.interceptHCodeFirstBit()
+        sign = (-1) ** self.interceptHCodeFirstBit()
         
         # 0xxxxxx
         bit0 = self.interceptHCodeFirstBit()
@@ -538,15 +540,15 @@ class SpacePacketCreator:
         size = os.path.getsize(filePath)
         getLogger("spacePacketCreator").info("open file size:" + str(size))
         # for test
-        self.spacePacketsLengthMAX = 225980
+        self.spacePacketsLengthMAX = 200000
         self.startIndex = 0
         
 
     def createSpacekets(self):
 
         readDataSize = 0
-        i = 0
         spacketArray = []
+        i = 0
         while(1):
             getLogger("spacePacketCreator").info("space packet index=%d|readDataSize=%dMB|%dB" % (i, readDataSize/1024/1024, readDataSize))
             spacePacket = SpacePacket(self.binFile)
@@ -558,8 +560,8 @@ class SpacePacketCreator:
             
             # Packet Secondary Header
             spacePacket.preparePacketSecondaryHeader()
-
-            i += 1
+            
+            getLogger("spacePacketCreator").info("spacePacket.NumberOfQuads=%d|spacePacket.packetDataLength=%d" % (spacePacket.NumberOfQuads, spacePacket.packetDataLength)) 
             readDataSize += spacePacket.packetDataLength + 1 + 6
             # 
             if not spacePacket.isEcho() or i < self.startIndex:
@@ -589,6 +591,8 @@ class SpacePacketCreator:
             if i == self.spacePacketsLengthMAX:
                 getLogger("spacePacketCreator").info("getEnoughPackets|index=%d" % i)
                 break
+                
+            i += 1
 
 
 
