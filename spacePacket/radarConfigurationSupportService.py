@@ -29,11 +29,11 @@ class RadarConfigurationSupportService:
 
 
     # TXPSFcode
-    def getTXPSF(self, data):
+    def getTXPSF(self, data, txprr):
         sign0 = data[0] >> 7
         value = bytes([data[0] & 0b01111111, data[1]])
         temp = int.from_bytes(value, byteorder='big')
-        txpsf = self.TXPRR / (4 * self.fref) + math.pow(-1, sign0) * temp * self.fref / math.pow(2, 14)
+        txpsf = txprr / (4 * self.fref) + math.pow(-1, sign0) * temp * self.fref / math.pow(2, 14)
         return txpsf
      
 
@@ -44,30 +44,30 @@ class RadarConfigurationSupportService:
         return txpl
 
 
-    def parseData(self, data):
-        self.errorFlag = data[0] >> 7
-        self.BAQMode = data[0] & 0b00011111
+    def parseData(self, data, packet):
+        packet.errorFlag = data[0] >> 7
+        packet.BAQMode = data[0] & 0b00011111
 
         # BAQ Block Length
-        self.baqBlockLength = data[1]
+        packet.baqBlockLength = data[1]
 
         # Range Decimation
-        self.SamplingFrequencyAfterDecimation = self.getSamplingFrequency(data[3])
+        packet.SamplingFrequencyAfterDecimation = self.getSamplingFrequency(data[3])
 
         # Tx Pulse Ramp Rate [42, 44)
-        self.TXPRR = self.getTXPRR(data[5:7])
+        packet.TXPRR = self.getTXPRR(data[5:7])
 
         # Tx Pulse Start Frequency [44, 46)
-        self.TXPSF = self.getTXPSF(data[7:9])
+        packet.TXPSF = self.getTXPSF(data[7:9], packet.TXPRR)
 
         # Tx Pulse Length [46, 49)
-        self.TXPL = self.getTXPL(data[9:12])
+        packet.TXPL = self.getTXPL(data[9:12])
         
         # Sampling Window Start Time [53, 56)
-        self.SWST = int.from_bytes(data[16:19], byteorder='big')
+        packet.SWST = int.from_bytes(data[16:19], byteorder='big')
 
         # Sampling Window Length [56, 59)
-        self.SWL = int.from_bytes(data[19:22], byteorder='big')
+        packet.SWL = int.from_bytes(data[19:22], byteorder='big')
 
 
         # SAS SSB Message [59, 62]
@@ -77,12 +77,12 @@ class RadarConfigurationSupportService:
         # calMode 
 
         # Signal Type
-        self.signalType = data[26] >> 4
+        packet.signalType = data[26] >> 4
 
         # Swath Number
-        self.swathNumber = data[27]
+        packet.swathNumber = data[27]
 
         getLogger("spacePacketCreator").info(
             ("errorFlag=%s|BAQMode=%d|baqBlockLength=%d|swst=%d|swl=%d|type=%d|swathNumber=%d|TXPL=%f|TXPSF=%f|FDec=%f") % 
-            (self.errorFlag, self.BAQMode, self.baqBlockLength, self.SWST, self.SWL, self.signalType, self.swathNumber, self.TXPL, self.TXPSF, self.SamplingFrequencyAfterDecimation)
+            (packet.errorFlag, packet.BAQMode, packet.baqBlockLength, packet.SWST, packet.SWL, packet.signalType, packet.swathNumber, packet.TXPL, packet.TXPSF, packet.SamplingFrequencyAfterDecimation)
         )

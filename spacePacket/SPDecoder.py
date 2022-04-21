@@ -1,20 +1,17 @@
-import os
-
 from utils.log import getLogger
+
 from .reconstruction import sampleReconstruction 
-from .radarConfigurationSupportService import RadarConfigurationSupportService
-from .SLCProcessing import SLCProcessor
+from .radarConfigurationSupportService import RadarConfigurationSupportService 
 
 #
-class SpacePacket:
+class SPDecoder:
     def __init__(self, binFile):
         self.binFile = binFile
         self.hCode = 0
         self.hCodeBitsSize = 0
         self.userDataCnt = 0
-        self.bitRateCodeList = []
-        self.thresholdIndexList = []
-        self.huffmanDecodeFuncDict  = {
+        self.rcss = RadarConfigurationSupportService()
+        self.huffmanDecodeFuncDict = {
             0: self.huffmanDecodeCore4BRC0,
             1: self.huffmanDecodeCore4BRC1,
             2: self.huffmanDecodeCore4BRC2,
@@ -23,121 +20,100 @@ class SpacePacket:
             }
 
 
-        # space packet define
-        self.packetPrimaryHeader = 0
-        self.packetDataLength = 0 
-        self.datationService = 0
-        self.fixedAncillaryDataField = 0
-        self.subCommutationAncillaryDataServiceField = 0
-        self.countersService = 0
-        self.radarSampleCountService = 0
-        self.radarConfigurationSupportService = RadarConfigurationSupportService()
-
-
-        self.ISampleValue = []
-        self.QSampleValue = []
-
-
-
     # Get Packet Data Length: number of octets in packet data field-1
     # Packet Data Field consists of Packet Secondary Header and User Data Field
     # Octet Offset [0, 6)
-    def preparePacketPrimaryHeader(self):
-        self.packetPrimaryHeader = self.getBytesFromBinFile(4)
-        if len(self.packetPrimaryHeader) != 4:
+    def preparePacketPrimaryHeader(self, packet):
+        packet.primaryHeader = self.getBytesFromBinFile(4)
+        if len(packet.primaryHeader) != 4:
             return False
 
         # get Packet Data Length, unit: Octets
         packetDataLength0 = self.getBytesFromBinFile(2)
 
         # showBinaryLength = '{:016b}'.format(int.from_bytes(packetDataLength0, byteorder='big'))
-        self.packetDataLength = int.from_bytes(packetDataLength0, byteorder='big')
-        str0 = ("packetDataLength=%d|packetDataLength%%4=%d") % (self.packetDataLength ,  (self.packetDataLength + 6 + 1) % 4)
+        packet.packetDataLength = int.from_bytes(packetDataLength0, byteorder='big')
+        str0 = ("packetDataLength=%d|all packetDataLength%%4=%d") % (packet.packetDataLength ,  (packet.packetDataLength + 6 + 1) % 4)
         getLogger("spacePacketCreator").info(str0)
 
 
-    def preparePacketSecondaryHeader(self):
+    def preparePacketSecondaryHeader(self, packet):
         # Datation Service
         # Octet Offset [6, 12)
-        self.datationService = self.getBytesFromBinFile(6)
+        packet.datationService = self.getBytesFromBinFile(6)
 
         # Fixed Ancillary Data Field
         # Octet Offset [12, 26)
-        self.parseFixedAncillaryDataField()
+        self.parseFixedAncillaryDataField(packet)
 
         # Sub-commutation Ancillary Data Service Field
         # Octet Offset [26, 29)
-        self.subCommutationAncillaryDataServiceField = self.getBytesFromBinFile(3)
+        packet.subCommutationAncillaryDataServiceField = self.getBytesFromBinFile(3)
 
         # Counters Service
         # Octet Offset [29, 37)
-        self.countersService = self.getBytesFromBinFile(8)
+        packet.countersService = self.getBytesFromBinFile(8)
 
         # Radar Configuration Support Service
         # Octet Offset [37, 65)
         # self.parseRadarConfigurationSupportService()
         data0 = self.getBytesFromBinFile(28)
-        self.radarConfigurationSupportService.parseData(data0)
+        self.rcss.parseData(data0, packet)
 
         # Radar Sample Count Service
         # Octet Offset [65, 67)
         radarSampleCountService = self.getBytesFromBinFile(2)
         numberOfQuads = int.from_bytes(radarSampleCountService, byteorder='big')
-        self.NumberOfQuads = numberOfQuads
+        packet.NumberOfQuads = numberOfQuads
 
         # N/A
         # Octet Offset [67, 68)
         na = self.getBytesFromBinFile(1)
     
     # 
-    def parseFixedAncillaryDataField(self):
-        syncMarker = self.getBytesFromBinFile(4)
-        dataTakeID = self.getBytesFromBinFile(4)
-        eccNumber = self.getBytesFromBinFile(1)
-        testMode = self.getBytesFromBinFile(1)
-        instrumentConfigurationID = self.getBytesFromBinFile(4)
-        testMode_int = int.from_bytes(testMode, byteorder='big')
-        str0 = ("testMode_int=%s") % ('{:08b}'.format(testMode_int))
-        getLogger("spacePacketCreator").info(str0)
+    def parseFixedAncillaryDataField(self, packet):
+        packet.syncMarker = self.getBytesFromBinFile(4)
+        packet.dataTakeID = self.getBytesFromBinFile(4)
+        packet.eccNumber = self.getBytesFromBinFile(1)
+        packet.testMode = self.getBytesFromBinFile(1)
+        packet.instrumentConfigurationID = self.getBytesFromBinFile(4)
+        testMode_int = int.from_bytes(packet.testMode, byteorder='big')
+        getLogger("spacePacketCreator").info(("testMode_int=%s") % ('{:08b}'.format(testMode_int)))
 
-    #
-    def isEcho(self):
-        return self.radarConfigurationSupportService.signalType == 0
 
     def getBytesFromBinFile(self, numOfBytes):
         return self.binFile.read(numOfBytes)
     
 
-    def prepareUserDataFiled(self):
-
+    def prepareUserDataFiled(self, packet):
         # decode IE Huffmann Codes 
-        iESignList, iEMCodeList = self.getIEMCode()
+        iESignList, iEMCodeList = self.getIEMCode(packet)
         self.alignData(16)
         
         # decode IO Huffmann Codes
-        iOSignList, iOMCodeList = self.getIOorQOMCode()
+        iOSignList, iOMCodeList = self.getIOorQOMCode(packet)
         self.alignData(16)
 
         # decode QE Huffmann Codes 
-        qESignList, qEMCodeList = self.getQEMCode()
+        qESignList, qEMCodeList = self.getQEMCode(packet)
         self.alignData(16)
 
         # decode QO Huffmann Codes 
-        qOSignList, qOMCodeList = self.getIOorQOMCode()
+        qOSignList, qOMCodeList = self.getIOorQOMCode(packet)
         self.alignData(16)
 
         # 2 filler octets may be padded to make overall Space Packet length a multiple of 4 octets
         self.alignData(32)
 
-        iEValueList = self.reconstructionFDBQA(iESignList, iEMCodeList)
+        iEValueList = self.reconstructionFDBQA(packet, iESignList, iEMCodeList)
         # print("iEValueList:", iEValueList[0:10])
-        iOValueList = self.reconstructionFDBQA(iOSignList, iOMCodeList)
-        qEValueList = self.reconstructionFDBQA(qESignList, qEMCodeList)
-        qOValueList = self.reconstructionFDBQA(qOSignList, qOMCodeList)
+        iOValueList = self.reconstructionFDBQA(packet, iOSignList, iOMCodeList)
+        qEValueList = self.reconstructionFDBQA(packet, qESignList, qEMCodeList)
+        qOValueList = self.reconstructionFDBQA(packet, qOSignList, qOMCodeList)
 
         for i in range(len(iEValueList)):
-            self.ISampleValue += [iEValueList[i], iOValueList[i]]
-            self.QSampleValue += [qEValueList[i], qOValueList[i]]
+            packet.ISampleValue += [iEValueList[i], iOValueList[i]]
+            packet.QSampleValue += [qEValueList[i], qOValueList[i]]
 
 
     def interceptUserDataBits(self, num):
@@ -175,14 +151,14 @@ class SpacePacket:
         self.interceptUserDataBits(dummiesLength)
 
 
-    def reconstructionFDBQA(self, signList, mCodeList):
+    def reconstructionFDBQA(self, packets, signList, mCodeList):
         reslist0 = []
         for i in range(len(signList)):
             # sampleReconstruction(self, brc, thidx, sign, mCode)
             brcIndx = int(i/128)
             res = sampleReconstruction(
-                    self.bitRateCodeList[brcIndx], 
-                    self.thresholdIndexList[brcIndx], 
+                    packets.bitRateCodeList[brcIndx], 
+                    packets.thresholdIndexList[brcIndx], 
                     signList[i],
                     mCodeList[i])
             reslist0.append(res)
@@ -190,42 +166,33 @@ class SpacePacket:
         return reslist0
             
 
-    def saveTHIDX(self, thidx):
-        self.thresholdIndexList.append(thidx)
-    
-
-    def saveBRC(self, brc):
-        # getLogger("spacePacketCreator").info("saveBRC|brc=%s" % (brc))
-        self.bitRateCodeList.append(brc)
-    
-
-    def getIEMCode(self):
+    def getIEMCode(self, packet):
         signList = []
         mCodeList = []
         while(1):
             mCodeQuantity = 128
-            if (self.NumberOfQuads - len(signList)) / mCodeQuantity < 1:
-                mCodeQuantity = self.NumberOfQuads - len(signList)
+            if (packet.NumberOfQuads - len(signList)) / mCodeQuantity < 1:
+                mCodeQuantity = packet.NumberOfQuads - len(signList)
             bitRateCode = self.interceptUserDataBits(3)
-            self.saveBRC(bitRateCode)
+            packet.saveBRC(bitRateCode)
             signList0, mCodeList0 = self.huffmanDecode(mCodeQuantity, bitRateCode)
             signList += signList0
             mCodeList += mCodeList0
-            if len(signList) >= self.NumberOfQuads:
+            if len(signList) >= packet.NumberOfQuads:
                 break
         return signList, mCodeList
 
 
-    def getIOorQOMCode(self):
+    def getIOorQOMCode(self, packet):
         signList = []
         mCodeList = []
         i = 0
         while(1):
             mCodeQuantity = 128
-            if (self.NumberOfQuads - len(signList)) / 128 < 1:
-                mCodeQuantity = self.NumberOfQuads - len(signList)
+            if (packet.NumberOfQuads - len(signList)) / 128 < 1:
+                mCodeQuantity = packet.NumberOfQuads - len(signList)
 
-            bitRateCode = self.bitRateCodeList[i]
+            bitRateCode = packet.bitRateCodeList[i]
             signList0, mCodeList0 = self.huffmanDecode(mCodeQuantity, bitRateCode)
             
             # print("hCode:", self.hCode, " hCodeSize:", self.hCodeBitsSize)
@@ -233,24 +200,24 @@ class SpacePacket:
             mCodeList += mCodeList0
             i += 1
 
-            if len(signList) >= self.NumberOfQuads:
+            if len(signList) >= packet.NumberOfQuads:
                 break
         return signList, mCodeList
-    
 
-    def getQEMCode(self):
+
+    def getQEMCode(self, packet):
         signList = []
         mCodeList = []
         i = 0
         while(1):
             mCodeQuantity = 128
-            if (self.NumberOfQuads - len(signList)) / 128 < 1:
-                mCodeQuantity = self.NumberOfQuads - len(signList)
+            if (packet.NumberOfQuads - len(signList)) / 128 < 1:
+                mCodeQuantity = packet.NumberOfQuads - len(signList)
 
             thidx0 = self.interceptUserDataBits(8)
-            self.saveTHIDX(thidx0)
+            packet.saveTHIDX(thidx0)
 
-            bitRateCode = self.bitRateCodeList[i]
+            bitRateCode = packet.bitRateCodeList[i]
             signList0, mCodeList0 = self.huffmanDecode(mCodeQuantity, bitRateCode)
             
             # print("hCode:", self.hCode, " hCodeSize:", self.hCodeBitsSize)
@@ -258,7 +225,7 @@ class SpacePacket:
             mCodeList += mCodeList0
             i += 1
 
-            if len(signList) >= self.NumberOfQuads:
+            if len(signList) >= packet.NumberOfQuads:
                 break
         return signList, mCodeList
         
@@ -272,7 +239,6 @@ class SpacePacket:
         # 
         for i in range(mCodeQuantity):
             sign, mCode = decodeFunc()
-
             if mCode == -1:
                 print("ERROR|mCode is error!")
 
@@ -530,78 +496,3 @@ class SpacePacket:
         else:
             mCode = 15
         return sign, mCode
-
-
-
-class SpacePacketCreator:
-    def __init__(self, filePath):
-        self.binFile = open(filePath, 'rb')
-        #
-        size = os.path.getsize(filePath)
-        getLogger("spacePacketCreator").info("open file size:" + str(size))
-        # for test
-        self.spacePacketsLengthMAX = 200000
-        self.startIndex = 0
-        
-
-    def createSpacekets(self):
-
-        readDataSize = 0
-        spacketArray = []
-        i = 0
-        while(1):
-            getLogger("spacePacketCreator").info("space packet index=%d|readDataSize=%dMB|%dB" % (i, readDataSize/1024/1024, readDataSize))
-            spacePacket = SpacePacket(self.binFile)
-
-            # Packet Primary Header
-            ok = spacePacket.preparePacketPrimaryHeader()
-            if ok == False:
-                break
-            
-            # Packet Secondary Header
-            spacePacket.preparePacketSecondaryHeader()
-            
-            getLogger("spacePacketCreator").info("spacePacket.NumberOfQuads=%d|spacePacket.packetDataLength=%d" % (spacePacket.NumberOfQuads, spacePacket.packetDataLength)) 
-            readDataSize += spacePacket.packetDataLength + 1 + 6
-            # 
-            if not spacePacket.isEcho() or i < self.startIndex:
-                getLogger("spacePacketCreator").info("index=%d|type:%d" % (i, spacePacket.radarConfigurationSupportService.signalType))
-                self.binFile.read(spacePacket.packetDataLength - 61)
-                continue
-
-            # User Data Field
-            spacePacket.prepareUserDataFiled()
-            getLogger("spacePacketCreator").info("index=%d|ISampleValue length=%d" % (i, len(spacePacket.QSampleValue)))
-            # validate
-            # Space Packet Length = Multiple of 4 Octets
-
-            # one list, one ISampleValue length
-            # if len(spacketArray) == 0 or len(spacketArray[0].QSampleValue) == len(spacePacket.QSampleValue):
-            if len(spacketArray) == 0 or spacketArray[0].radarConfigurationSupportService.SWL == spacePacket.   radarConfigurationSupportService.SWL:
-                spacketArray.append(spacePacket)
-            else:
-                getLogger("spacePacketCreator").info("index=%d|one kind|smaple len=%d" % 
-                    (i, len(spacePacket.QSampleValue)))
-                slcProcessor = SLCProcessor(i)
-                slcProcessor.compress(spacketArray)
-
-                spacketArray = [spacePacket]
-                
-
-            if i == self.spacePacketsLengthMAX:
-                getLogger("spacePacketCreator").info("getEnoughPackets|index=%d" % i)
-                break
-                
-            i += 1
-
-
-
-    
-if __name__ == "__main__":
-    filePath = '/home/chao/work/NNSFC/Program/RawDataProcessor/data/S1A_IW_RAW__0SDV_20220315T061928_20220315T062001_042328_050BC0_43C6.SAFE/s1a-iw-raw-s-vh-20220315t061928-20220315t062001-042328-050bc0.dat'
-    creator = SpacePacketCreator(filePath)
-    creator.createSpacekets()
-
-    # ReadFile()
-
-    
