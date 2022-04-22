@@ -1,0 +1,1 @@
+nohup python test.py > exec.log 2>&1 &
