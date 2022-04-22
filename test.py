@@ -1,10 +1,22 @@
 import os
-from spacePacket.spacePacketCreator import SpacePacketCreator
+from typing import ValuesView
+
+from sympy import fraction
+
+from spacePacket.spCreator import SPCreator
+from spacePacket.slcProcessor import SLCProcessor
+from spacePacket.corrector import Corrector
+from vo.binFile import BinFile
+from scipy.fftpack import fft, ifft
+import numpy as np
+import math
+import matplotlib.pyplot as plt
+
 
 
 def ReadFile():
     # filePath = '/home/chao/work/NNSFC/Program/RawDataProcessor/data/S1A_IW_RAW__0SDV_20220315T061928_20220315T062001_042328_050BC0_43C6.SAFE/s1a-iw-raw-s-vh-20220315t061928-20220315t062001-042328-050bc0-annot.dat'
-    filePath = '/home/chao/work/NNSFC/Program/RawDataProcessor/data/S1A_IW_RAW__0SDV_20220315T061928_20220315T062001_042328_050BC0_43C6.SAFE/s1a-iw-raw-s-vh-20220315t061928-20220315t062001-042328-050bc0.dat'
+    filePath = '/home/chao/work/NNSFC/Program/RawDataProcessor/data/S1A_IW_RAW__0SDV_20220315T061928_20220315T062001_042328_050BC0_43C6.SAFE/s1a-iw-raw-s-vv-20220315t061928-20220315t062001-042328-050bc0.dat'
     # NQ = 2863
     # IE Huffmann BRC = 000
     binFile = open(filePath, 'rb')
@@ -26,10 +38,77 @@ def ReadFile():
 
     binFile.close()
 
-if __name__ == "__main__":
 
-    filePath = '/home/chao/work/NNSFC/Program/RawDataProcessor/data/S1A_IW_RAW__0SDV_20220315T061928_20220315T062001_042328_050BC0_43C6.SAFE/s1a-iw-raw-s-vh-20220315t061928-20220315t062001-042328-050bc0.dat'
-    creator = SpacePacketCreator(filePath)
+# azimuth compress
+def azimuthCompress(rangeCompressMat):
+    # get azimuth chirp
+    rangelength, azimuthLength = rangeCompressMat.shape
+    tempMat = rangeCompressMat.copy()
+    zeros0 = np.zeros(tempMat[::, 0:300].shape)
+    tempMat[::, 0:300] = zeros0
+    tempMat[::, azimuthLength-300:azimuthLength] = zeros0
+    maxPos = np.unravel_index(np.argmax(np.abs(tempMat)), tempMat.shape)
+
+    mychirp = rangeCompressMat[maxPos[0], maxPos[1]-300 : maxPos[1]+300]
+
+    for i in range(rangelength):
+        temp = np.correlate(mychirp, rangeCompressMat[i, ::], mode='full')
+        temp = temp[math.floor(len(mychirp)/2) : 
+                    azimuthLength + math.floor(len(mychirp)/2)]
+        tempMat[i, ::] = temp
+    
+    plt.figure()
+    plt.pcolor(np.fliplr(np.flipud(np.abs(tempMat[::3, ::3]))), vmin = 1, vmax = 2*10**8)
+    plt.colorbar()
+    plt.show()
+
+
+def showFreqImg():
+    y = np.load("tempMat.npy")
+    # print("y.shape", y.shape)
+    # [r, c] = y.shape
+    # for index in range(r):
+    #     fftY = fft(y[index,::])
+    #     one = np.ones(fftY.shape)
+    #     one[0:125] = np.zeros(125)
+    #     fftY1 = fftY * one
+    #     y2 = ifft(fftY1)
+    #     y[index,::] = y2
+
+
+    img = np.fliplr(np.flipud(np.abs(y[::3,::3])))
+    (x1, y1) = img.shape
+    sc = 128
+    plt.figure(figsize=(sc*y1/x1, sc), dpi=128)
+    plt.pcolor(img, vmin = 1, vmax = 2*10**8)
+    plt.colorbar()
+    plt.savefig("test.png")
+
+
+if __name__ == "__main__":
+    # a = np.array([1,2,3])
+    # b = np.array([10,20, 30])
+    # print(np.sum(a*b))
+
+    filePath = '/home/chao/work/NNSFC/Program/RawDataProcessor/data/S1A_IW_RAW__0SDV_20220415T103334_20220415T103407_042783_051B28_32F3.SAFE/s1a-iw-raw-s-vv-20220415t103334-20220415t103407-042783-051b28.dat'
+    file0 = BinFile(filePath)
+
+    # decode packets
+    creator = SPCreator(file0)
     creator.createSpacekets()
 
+    # 
+    fileList0 = os.listdir('./data/%s/decode' % file0.polar)
+    fileList0.sort()
+
+    # generate image
+    for name in fileList0:
+        corrector = Corrector(file0.polar, name)
+        corrector.correct()
+
+        slcProcess = SLCProcessor(file0.polar, name)
+        slcProcess.compress()
+
+    # slcProcess = SLCProcessor()
+    # slcProcess.compress("rangeLine_1552")
 
