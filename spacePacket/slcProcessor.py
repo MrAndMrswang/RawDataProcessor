@@ -61,7 +61,12 @@ class SLCProcessor:
                       azimuthLength + math.floor(len(mychirp)/2)]
             tempMat[i, ::] = temp
         
-        plt.figure()
-        plt.pcolor(np.fliplr(np.flipud(np.abs(tempMat[::3, ::3]))), vmin = 1, vmax = 2*10**8)
+
+        tempMat = np.fliplr(np.flipud(np.abs(tempMat[::3, ::3])))
+        scale = 100
+        (r1, c1) = tempMat.shape
+        plt.figure(figsize=(scale*c1/r1, scale), dpi=128)
+        plt.pcolor(tempMat, vmin = 1, vmax = 2*10**8)
         plt.colorbar()
-        plt.savefig("./pic/test.png", dpi=800)
+        plt.savefig("./pic/%s.png" % self.pklFile)
+        
