@@ -1,26 +1,23 @@
-import os
 from utils.log import getLogger
-from .packetVO import PacketVO
+from numba import jit
+from vo.spacePacket import SpacePacket
 from .spDecoder import SPDecoder
 import pickle
 
 class SPCreator:
-    def __init__(self, filePath):
-        self.binFile = open(filePath, 'rb')
-        size = os.path.getsize(filePath)
-        getLogger("spacePacketCreator").info("open file size:" + str(size))
-        # for test
+    def __init__(self, binFile):
+        self.binFile = binFile
         self.spacePacketsLengthMAX = 2000000
-        self.startIndex = 0
+        self.startIndex = 17303
         
 
     # save data range by range
     def saveOneRangeData(self, packetIndex, packets):
-        dumpFileName = "./data/decode/rangeLine_%d.pkl" % packetIndex
+        dumpFileName = "./data/%s/decode/rangeLine_%d.pkl" % (self.binFile.polar, packetIndex)
         dumpFile = open(dumpFileName, 'wb')
         pickle.dump(packets, dumpFile)
 
-
+    @jit
     def createSpacekets(self):
         readDataSize = 0
         packets = []
@@ -28,7 +25,7 @@ class SPCreator:
         while(1):
             getLogger("spacePacketCreator").info("space packet index=%d|readDataSize=%dMB|%dB" % (i, readDataSize/1024/1024, readDataSize))
             decoder = SPDecoder(self.binFile)
-            packet0 = PacketVO()
+            packet0 = SpacePacket()
 
             # Packet Primary Header
             ok = decoder.preparePacketPrimaryHeader(packet0)

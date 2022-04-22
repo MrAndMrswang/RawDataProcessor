@@ -6,26 +6,26 @@ from .rawDataAnalysis import RawDataAnalysis
 from utils.log import getLogger
 
 class Corrector:
-    def __init__(self) -> None:
-        pass
+    def __init__(self, polar, name) -> None:
+        self.polar = polar
+        self.name = name
 
 
-    def correct(self, name):
-        self.preparePackets(name)
+    def correct(self):
+        self.preparePackets()
         self.IQBias()
-        self.saveCorrectedData(name)
+        self.saveCorrectedData()
 
 
-    def saveCorrectedData(self, name):
-        dumpFileName = "./data/correct/%s.pkl" % name
+    def saveCorrectedData(self):
+        dumpFileName = "./data/%s/correct/%s" % (self.polar, self.name)
         dumpFile = open(dumpFileName, 'wb')
         pickle.dump(self.packets, dumpFile)
     
 
-    def preparePackets(self, name):
-        self.pklFile = name
-        self.packets = pickle.load(open("./data/decode/%s.pkl" % name, "rb"))
-        getLogger("corrector").info("npyFile=%s|packets len = %d" % (self.pklFile, len(self.packets)))
+    def preparePackets(self):
+        self.packets = pickle.load(open("./data/%s/decode/%s" % (self.polar, self.name), "rb"))
+        getLogger("corrector").info("npyFile=%s|packets len = %d" % (self.name, len(self.packets)))
 
         self.analysis = RawDataAnalysis(self.packets)
         self.analysis.process()

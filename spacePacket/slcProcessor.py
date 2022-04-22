@@ -7,14 +7,14 @@ import pickle
 
 # version 0.1.
 class SLCProcessor:
-    def __init__(self) -> None:
-        pass
+    def __init__(self, polar, name) -> None:
+        self.polar = polar
+        self.name = name
 
 
-    def compress(self, name):
-        self.pklFile = name
-        packets = pickle.load(open("./data/correct/%s.pkl" % name, "rb"))
-        getLogger("SLCProcessing").info("npyFile=%s|packets len = %d" % (self.pklFile, len(packets)))
+    def compress(self):
+        packets = pickle.load(open("./data/%s/correct/%s" % (self.polar, self.name), "rb"))
+        getLogger("SLCProcessing").info("npyFile=%s|packets len = %d" % (self.name, len(packets)))
 
         rangeCompressMat = self.rangeCompress(packets)
         self.azimuthCompress(rangeCompressMat)
@@ -25,6 +25,7 @@ class SLCProcessor:
         rangelength = packets[0].ISampleValue.shape[0]
         azimuthLength = len(packets)
         resData = np.zeros((rangelength, azimuthLength), dtype = "complex_")
+        getLogger("SLCProcessing").info("rangelength=%d|azimuthLength=%d" % (rangelength, azimuthLength))
         index = 0
         for packet in packets:
             samplePoint = packet.SamplingFrequencyAfterDecimation * packet.TXPL
@@ -32,8 +33,7 @@ class SLCProcessor:
             phi1 = packet.TXPSF + packet.TXPRR * packet.TXPL / 2
             phi2 = packet.TXPRR / 2
             chirpReplica = np.exp(-1j*2*np.pi*(phi1*tim + phi2*tim**2))
-            getLogger("verbose").info("i=%d|len:%d|phi1=%f|phi2=%f" % (index, len(tim), phi1, phi2))
-
+            
             # cross
             echoData = packet.ISampleValue + 1j*packet.QSampleValue
             res = np.correlate(chirpReplica, echoData, mode='full')
@@ -61,12 +61,30 @@ class SLCProcessor:
                       azimuthLength + math.floor(len(mychirp)/2)]
             tempMat[i, ::] = temp
         
+        tempMat = np.fliplr(np.flipud(np.abs(tempMat)))
+        # self.showALL(tempMat)
+        self.showPart(tempMat)
+        
 
-        tempMat = np.fliplr(np.flipud(np.abs(tempMat[::3, ::3])))
+    def showALL(self, tempMat):
+        tempMat = tempMat[::3, ::3]
         scale = 100
         (r1, c1) = tempMat.shape
         plt.figure(figsize=(scale*c1/r1, scale), dpi=128)
         plt.pcolor(tempMat, vmin = 1, vmax = 2*10**8)
         plt.colorbar()
-        plt.savefig("./pic/%s.png" % self.pklFile)
+        plt.savefig("./pic/%s/%s_all.png" % (self.polar, self.name.split('.')[0]))
+
+
+    def showPart(self, tempMat):
+        (row, col) = tempMat.shape
+        picNum = int(row / 20)
+        for index in range(20):
+            showMat = tempMat[index*picNum:(index+1)*picNum, ::]
+            scale = 100
+            (r1, c1) = showMat.shape
+            plt.figure(figsize=(scale*c1/r1, scale), dpi=100)
+            plt.pcolor(showMat, vmin = 1, vmax = 2*10**8)
+            plt.colorbar()
+            plt.savefig("./pic/%s/%s_%d.png" % (self.polar, self.name.split('.')[0], index))
         
