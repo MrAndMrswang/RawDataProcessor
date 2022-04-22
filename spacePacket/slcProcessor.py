@@ -2,6 +2,7 @@ from utils.log import getLogger
 import numpy as np
 import math
 import matplotlib.pyplot as plt
+from scipy import fft
 import pickle
 
 # version 0.1.
@@ -12,7 +13,7 @@ class SLCProcessor:
 
     def compress(self, name):
         self.pklFile = name
-        packets = pickle.load(open("./data/decode/%s.pkl" % name, "rb"))
+        packets = pickle.load(open("./data/correct/%s.pkl" % name, "rb"))
         getLogger("SLCProcessing").info("npyFile=%s|packets len = %d" % (self.pklFile, len(packets)))
 
         rangeCompressMat = self.rangeCompress(packets)
@@ -21,7 +22,7 @@ class SLCProcessor:
 
     # range compress
     def rangeCompress(self, packets):
-        rangelength = len(packets[0].ISampleValue)
+        rangelength = packets[0].ISampleValue.shape[0]
         azimuthLength = len(packets)
         resData = np.zeros((rangelength, azimuthLength), dtype = "complex_")
         index = 0
@@ -34,7 +35,7 @@ class SLCProcessor:
             getLogger("verbose").info("i=%d|len:%d|phi1=%f|phi2=%f" % (index, len(tim), phi1, phi2))
 
             # cross
-            echoData = np.array(packet.ISampleValue) + 1j*np.array(packet.QSampleValue)
+            echoData = packet.ISampleValue + 1j*packet.QSampleValue
             res = np.correlate(chirpReplica, echoData, mode='full')
             res = res[math.floor(len(chirpReplica)/2) : 
                       rangelength + math.floor(len(chirpReplica)/2)]

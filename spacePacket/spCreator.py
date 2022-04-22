@@ -1,7 +1,7 @@
 import os
 from utils.log import getLogger
 from .packetVO import PacketVO
-from .SPDecoder import SPDecoder
+from .spDecoder import SPDecoder
 import pickle
 
 class SPCreator:
@@ -49,7 +49,7 @@ class SPCreator:
 
             # User Data Field
             decoder.prepareUserDataFiled(packet0)
-            getLogger("spacePacketCreator").info("index=%d|ISampleValue length=%d" % (i, len(packet0.QSampleValue)))
+            getLogger("spacePacketCreator").info("index=%d|ISampleValue length=%d" % (i, packet0.QSampleValue.shape[0]))
 
             # validate
             # Space Packet Length = Multiple of 4 Octets
@@ -59,8 +59,8 @@ class SPCreator:
                 packets.append(packet0)
             else:
                 getLogger("spacePacketCreator").info("index=%d|one kind|smaple len=%d" % 
-                    (i, len(packet0.QSampleValue)))
-                # self.saveOneRangeData(i, packets)
+                    (i, packet0.QSampleValue.shape[0]))
+                self.saveOneRangeData(i, packets)
                 packets = [packet0]
                 
 

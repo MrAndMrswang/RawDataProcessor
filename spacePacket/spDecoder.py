@@ -1,3 +1,4 @@
+import numpy as np
 from utils.log import getLogger
 
 from .reconstruction import sampleReconstruction 
@@ -114,6 +115,9 @@ class SPDecoder:
         for i in range(len(iEValueList)):
             packet.ISampleValue += [iEValueList[i], iOValueList[i]]
             packet.QSampleValue += [qEValueList[i], qOValueList[i]]
+        
+        packet.ISampleValue = np.array(packet.ISampleValue)
+        packet.QSampleValue = np.array(packet.QSampleValue)
 
 
     def interceptUserDataBits(self, num):
