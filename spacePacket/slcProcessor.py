@@ -34,7 +34,8 @@ class SLCProcessor:
             phi1 = packet.TXPSF + packet.TXPRR * packet.TXPL / 2
             phi2 = packet.TXPRR / 2
             chirpReplica = np.exp(-1j*2*np.pi*(phi1*tim + phi2*tim**2))
-            getLogger("SLCProcessing").info("chirpReplica=%d" % len(chirpReplica))
+            getLogger("SLCProcessing").info("chirpReplica=%d|phi1=%f|phi2=%f|samplePoint=%d" % 
+            (len(chirpReplica), phi1, phi2, samplePoint))
             # cross
             echoData = packet.ISampleValue + 1j*packet.QSampleValue
             res = np.correlate(chirpReplica, echoData, mode='full')
@@ -94,7 +95,7 @@ class SLCProcessor:
         scale = 100
         (r1, c1) = data.shape
         fig = plt.figure(figsize=(scale*c1/r1, scale), dpi=128)
-        plt.pcolor(data, vmin = 0, vmax = 3000)
+        plt.pcolor(data, vmin = 0, vmax = 1400)
         plt.colorbar()
         plt.savefig(figName)
         fig.clf()

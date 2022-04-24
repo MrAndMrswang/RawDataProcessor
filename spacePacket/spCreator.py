@@ -1,5 +1,4 @@
 from utils.log import getLogger
-from numba import jit
 from vo.spacePacket import SpacePacket
 from .spDecoder import SPDecoder
 import pickle
@@ -8,7 +7,7 @@ class SPCreator:
     def __init__(self, binFile):
         self.binFile = binFile
         self.spacePacketsLengthMAX = 2000000
-        self.startIndex = 17303
+        self.startIndex = 51151
         
 
     # save data range by range
@@ -17,7 +16,7 @@ class SPCreator:
         dumpFile = open(dumpFileName, 'wb')
         pickle.dump(packets, dumpFile)
 
-    @jit
+
     def createSpacekets(self):
         readDataSize = 0
         packets = []

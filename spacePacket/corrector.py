@@ -1,6 +1,5 @@
 import pickle
 import math
-import numpy
 from .rawDataAnalysis import RawDataAnalysis
 
 from utils.log import getLogger
