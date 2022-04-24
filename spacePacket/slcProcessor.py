@@ -1,8 +1,9 @@
 from utils.log import getLogger
 import numpy as np
 import math
+import os
+import gc
 import matplotlib.pyplot as plt
-from scipy import fft
 import pickle
 
 # version 0.1.
@@ -17,7 +18,7 @@ class SLCProcessor:
         getLogger("SLCProcessing").info("npyFile=%s|packets len = %d" % (self.name, len(packets)))
 
         rangeCompressMat = self.rangeCompress(packets)
-        self.azimuthCompress(rangeCompressMat)
+        # self.azimuthCompress(rangeCompressMat)
 
 
     # range compress
@@ -33,7 +34,7 @@ class SLCProcessor:
             phi1 = packet.TXPSF + packet.TXPRR * packet.TXPL / 2
             phi2 = packet.TXPRR / 2
             chirpReplica = np.exp(-1j*2*np.pi*(phi1*tim + phi2*tim**2))
-            
+            getLogger("SLCProcessing").info("chirpReplica=%d" % len(chirpReplica))
             # cross
             echoData = packet.ISampleValue + 1j*packet.QSampleValue
             res = np.correlate(chirpReplica, echoData, mode='full')
@@ -42,6 +43,10 @@ class SLCProcessor:
             resData[::, index] = res
             index += 1
         
+        resData = np.fliplr(np.flipud(np.abs(resData[::3, ::3])))
+        print(np.mean(resData))
+        figName = "./pic/%s/all/%s_range.png" % (self.polar, self.name.split('.')[0])
+        self.saveFig(resData, figName)
         return resData
 
 
@@ -62,29 +67,78 @@ class SLCProcessor:
             tempMat[i, ::] = temp
         
         tempMat = np.fliplr(np.flipud(np.abs(tempMat)))
+        getLogger("SLCProcessing").info("azimuthCompress=%s|ready to plot" % self.name)
         # self.showALL(tempMat)
         self.showPart(tempMat)
         
 
     def showALL(self, tempMat):
         tempMat = tempMat[::3, ::3]
-        scale = 100
-        (r1, c1) = tempMat.shape
-        plt.figure(figsize=(scale*c1/r1, scale), dpi=128)
-        plt.pcolor(tempMat, vmin = 1, vmax = 2*10**8)
-        plt.colorbar()
-        plt.savefig("./pic/%s/%s_all.png" % (self.polar, self.name.split('.')[0]))
+        figName = "./pic/%s/all/%s_all.png" % (self.polar, self.name.split('.')[0])
+        self.saveFig(tempMat, figName)
 
 
     def showPart(self, tempMat):
         (row, col) = tempMat.shape
-        picNum = int(row / 20)
-        for index in range(20):
+        picNum = int(row / 60)
+        for index in range(60):
             showMat = tempMat[index*picNum:(index+1)*picNum, ::]
-            scale = 100
-            (r1, c1) = showMat.shape
-            plt.figure(figsize=(scale*c1/r1, scale), dpi=100)
-            plt.pcolor(showMat, vmin = 1, vmax = 2*10**8)
-            plt.colorbar()
-            plt.savefig("./pic/%s/%s_%d.png" % (self.polar, self.name.split('.')[0], index))
-        
+            dir0 = "./pic/%s/part/%s" % (self.polar, self.name.split('.')[0])
+            if not os.path.exists(dir0):
+                os.mkdir(dir0)
+            figName = "%s/%d.png" % (dir0, index)
+            self.saveFig(showMat, figName)
+    
+
+    def saveFig(self, data, figName):
+        scale = 100
+        (r1, c1) = data.shape
+        fig = plt.figure(figsize=(scale*c1/r1, scale), dpi=128)
+        plt.pcolor(data, vmin = 0, vmax = 3000)
+        plt.colorbar()
+        plt.savefig(figName)
+        fig.clf()
+        plt.close()
+        gc.collect()
+
+
+    # save Origin data as img
+    def saveOrigin(self):
+        packets = pickle.load(open("./data/%s/decode/%s" % (self.polar, self.name), "rb"))
+        rangelength = packets[0].ISampleValue.shape[0]
+        azimuthLength = len(packets)
+        resData = np.zeros((rangelength, azimuthLength), dtype = "complex_")
+        index = 0
+        for packet in packets:
+            echoData = packet.ISampleValue + 1j*packet.QSampleValue
+            resData[::, index] = echoData
+            index += 1
+
+        resData = np.fliplr(np.flipud(np.abs(resData[::3, ::3])))
+        print(np.mean(resData))
+        figName = "./pic/%s/all/%s_ori.png" % (self.polar, self.name.split('.')[0])
+        self.saveFig(resData, figName)
+
+
+    def saveOriginSingle(self):
+        packets = pickle.load(open("./data/%s/decode/%s" % (self.polar, self.name), "rb"))
+        rangelength = packets[0].ISampleValue.shape[0]
+        azimuthLength = len(packets)
+        resDataI = np.zeros((rangelength, azimuthLength))
+        index = 0
+        for packet in packets:
+            resDataI[::, index] = packet.ISampleValue
+            index += 1
+
+        print(np.mean(resDataI), np.min(resDataI), np.max(resDataI))
+        self.saveFig(resDataI[::3, ::3], "./pic/%s/all/%s_I.png" % (self.polar, self.name.split('.')[0]))
+
+        resDataI = []
+        resDataQ = np.zeros((rangelength, azimuthLength))
+        index = 0
+        for packet in packets:
+            resDataQ[::, index] = packet.QSampleValue
+            index += 1
+
+        print(np.mean(resDataQ), np.min(resDataQ), np.max(resDataQ))
+        self.saveFig(resDataQ[::3, ::3], "./pic/%s/all/%s_Q.png" % (self.polar, self.name.split('.')[0]))
