@@ -18,7 +18,7 @@ class SLCProcessor:
         getLogger("SLCProcessing").info("npyFile=%s|packets len = %d" % (self.name, len(packets)))
 
         rangeCompressMat = self.rangeCompress(packets)
-        # self.azimuthCompress(rangeCompressMat)
+        self.azimuthCompress(rangeCompressMat)
 
 
     # range compress
@@ -45,7 +45,6 @@ class SLCProcessor:
             index += 1
         
         resData = np.fliplr(np.flipud(np.abs(resData[::3, ::3])))
-        print(np.mean(resData))
         figName = "./pic/%s/all/%s_range.png" % (self.polar, self.name.split('.')[0])
         self.saveFig(resData, figName)
         return resData
@@ -55,6 +54,7 @@ class SLCProcessor:
     def azimuthCompress(self, rangeCompressMat):
         # get azimuth chirp
         rangelength, azimuthLength = rangeCompressMat.shape
+        getLogger("SLCProcessing").info("rangelength=%d|azimuthLength=%d" % (rangelength, azimuthLength))
         tempMat = rangeCompressMat.copy()
         zeros0 = np.zeros(tempMat[::, 0:300].shape)
         tempMat[::, 0:300] = zeros0

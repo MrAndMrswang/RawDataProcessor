@@ -29,6 +29,7 @@ class SPCreator:
             # Packet Primary Header
             ok = decoder.preparePacketPrimaryHeader(packet0)
             if ok == False:
+                getLogger("spacePacketCreator").warn("break|preparePacketPrimaryHeader")
                 break
             
             # Packet Secondary Header
