@@ -15,8 +15,6 @@ import matplotlib.pyplot as plt
 
 
 def ReadFile():
-    # filePath = '/home/chao/work/NNSFC/Program/RawDataProcessor/data/S1A_IW_RAW__0SDV_20220315T061928_20220315T062001_042328_050BC0_43C6.SAFE/s1a-iw-raw-s-vh-20220315t061928-20220315t062001-042328-050bc0-annot.dat'
-    filePath = '/home/chao/work/NNSFC/Program/RawDataProcessor/data/S1A_IW_RAW__0SDV_20220315T061928_20220315T062001_042328_050BC0_43C6.SAFE/s1a-iw-raw-s-vv-20220315t061928-20220315t062001-042328-050bc0.dat'
     # NQ = 2863
     # IE Huffmann BRC = 000
     binFile = open(filePath, 'rb')
@@ -86,11 +84,8 @@ def showFreqImg():
 
 
 if __name__ == "__main__":
-    # a = np.array([1,2,3])
-    # b = np.array([10,20, 30])
-    # print(np.sum(a*b))
-
-    filePath = '/home/chao/work/NNSFC/Program/RawDataProcessor/data/S1A_IW_RAW__0SDV_20220415T103334_20220415T103407_042783_051B28_32F3.SAFE/s1a-iw-raw-s-vv-20220415t103334-20220415t103407-042783-051b28.dat'
+    
+    filePath = '/home/gandalf/Work/SAR/RawDataProcessor/data/archives/S1A_IW_RAW__0SDV_20210726T214231_20210726T214303_038954_0498A8_D3A7.SAFE/s1a-iw-raw-s-vv-20210726t214231-20210726t214303-038954-0498a8.dat'
     file0 = BinFile(filePath)
 
     # decode packets
