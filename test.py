@@ -85,7 +85,7 @@ def showFreqImg():
 
 if __name__ == "__main__":
     
-    filePath = '/home/gandalf/Work/SAR/RawDataProcessor/data/archives/S1A_IW_RAW__0SDV_20210726T214231_20210726T214303_038954_0498A8_D3A7.SAFE/s1a-iw-raw-s-vv-20210726t214231-20210726t214303-038954-0498a8.dat'
+    filePath = './data/archives/S1A_IW_RAW__0SDV_20210726T214231_20210726T214303_038954_0498A8_D3A7.SAFE/s1a-iw-raw-s-vv-20210726t214231-20210726t214303-038954-0498a8.dat'
     file0 = BinFile(filePath)
 
     # decode packets
