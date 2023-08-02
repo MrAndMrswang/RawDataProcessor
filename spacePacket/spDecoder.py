@@ -27,7 +27,17 @@ class SPDecoder:
     def preparePacketPrimaryHeader(self, packet):
         packet.primaryHeader = self.getBytesFromBinFile(4)
         if len(packet.primaryHeader) != 4:
+            getLogger("spacePacketCreator").warn(("primaryHeader|primaryHeader.length=%d") % (len(packet.primaryHeader)))
             return False
+
+        # Packet Primary Header 的二进制解析
+        primaryHeader0 = int.from_bytes(packet.primaryHeader, byteorder='big')
+        packetVersionNumber = primaryHeader0 >> 29
+        packetIdentification = primaryHeader0 >> 16 & 0b0001111111111111
+        sequenceFlags = primaryHeader0 >> 14 & 0b11
+        packetSequenceCount = primaryHeader0 & 0b11111111111111
+
+        getLogger("spacePacketCreator").info(("primaryHeader|packetVersionNumber=%d|packetIdentification=%d|sequenceFlags=%d|packetSequenceCount=%d") % (packetVersionNumber, packetIdentification, sequenceFlags, packetSequenceCount))
 
         # get Packet Data Length, unit: Octets
         packetDataLength0 = self.getBytesFromBinFile(2)
@@ -36,6 +46,7 @@ class SPDecoder:
         packet.packetDataLength = int.from_bytes(packetDataLength0, byteorder='big')
         str0 = ("packetDataLength=%d|all packetDataLength%%4=%d") % (packet.packetDataLength ,  (packet.packetDataLength + 6 + 1) % 4)
         getLogger("spacePacketCreator").info(str0)
+        return True
 
 
     def preparePacketSecondaryHeader(self, packet):
@@ -76,10 +87,9 @@ class SPDecoder:
         packet.syncMarker = self.getBytesFromBinFile(4)
         packet.dataTakeID = self.getBytesFromBinFile(4)
         packet.eccNumber = self.getBytesFromBinFile(1)
-        packet.testMode = self.getBytesFromBinFile(1)
+        packet.testMode = int.from_bytes(self.getBytesFromBinFile(1), byteorder='big')
         packet.instrumentConfigurationID = self.getBytesFromBinFile(4)
-        testMode_int = int.from_bytes(packet.testMode, byteorder='big')
-        getLogger("spacePacketCreator").info(("testMode_int=%s") % ('{:08b}'.format(testMode_int)))
+        getLogger("spacePacketCreator").info(("testMode_int=%s") % ('{:08b}'.format(packet.testMode)))
 
 
     def getBytesFromBinFile(self, numOfBytes):

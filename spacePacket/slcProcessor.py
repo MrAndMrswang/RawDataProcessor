@@ -5,6 +5,8 @@ import os
 import gc
 import matplotlib.pyplot as plt
 import pickle
+import multiprocessing
+import scipy.io as sio
 
 # version 0.1.
 class SLCProcessor:
@@ -45,7 +47,8 @@ class SLCProcessor:
             index += 1
         
         resData = np.fliplr(np.flipud(np.abs(resData[::3, ::3])))
-        figName = "./pic/%s/all/%s_range.png" % (self.polar, self.name.split('.')[0])
+        # resData = np.fliplr(np.flipud(np.abs(resData)))
+        figName = "./pic/%s/all/%s_range" % (self.polar, self.name.split('.')[0])
         self.saveFig(resData, figName)
         return resData
 
@@ -69,35 +72,38 @@ class SLCProcessor:
         
         tempMat = np.fliplr(np.flipud(np.abs(tempMat)))
         getLogger("SLCProcessing").info("azimuthCompress=%s|ready to plot" % self.name)
-        # self.showALL(tempMat)
+        self.showALL(tempMat)
         self.showPart(tempMat)
         
 
     def showALL(self, tempMat):
-        tempMat = tempMat[::3, ::3]
-        figName = "./pic/%s/all/%s_all.png" % (self.polar, self.name.split('.')[0])
+        # tempMat = tempMat[::3, ::3]
+        figName = "./pic/%s/all/%s_all" % (self.polar, self.name.split('.')[0])
         self.saveFig(tempMat, figName)
 
 
     def showPart(self, tempMat):
         (row, col) = tempMat.shape
+        dir0 = "./pic/%s/part/%s" % (self.polar, self.name.split('.')[0])
+        if not os.path.exists(dir0):
+            os.mkdir(dir0)
+
         picNum = int(row / 60)
         for index in range(60):
-            showMat = tempMat[index*picNum:(index+1)*picNum, ::]
-            dir0 = "./pic/%s/part/%s" % (self.polar, self.name.split('.')[0])
-            if not os.path.exists(dir0):
-                os.mkdir(dir0)
-            figName = "%s/%d.png" % (dir0, index)
-            self.saveFig(showMat, figName)
-    
+           figName = "%s/%d" % (dir0, index)
+           showMat = tempMat[index*picNum:(index+1)*picNum, ::]
+           self.saveFig(showMat, figName)
+
 
     def saveFig(self, data, figName):
+        sio.savemat(figName+'.mat', {'data': data})
+
         scale = 100
         (r1, c1) = data.shape
         fig = plt.figure(figsize=(scale*c1/r1, scale), dpi=128)
         plt.pcolor(data, vmin = 0, vmax = 1400)
         plt.colorbar()
-        plt.savefig(figName)
+        plt.savefig(figName+'.png')
         fig.clf()
         plt.close()
         gc.collect()
@@ -117,7 +123,7 @@ class SLCProcessor:
 
         resData = np.fliplr(np.flipud(np.abs(resData[::3, ::3])))
         print(np.mean(resData))
-        figName = "./pic/%s/all/%s_ori.png" % (self.polar, self.name.split('.')[0])
+        figName = "./pic/%s/all/%s_ori" % (self.polar, self.name.split('.')[0])
         self.saveFig(resData, figName)
 
 
@@ -132,7 +138,7 @@ class SLCProcessor:
             index += 1
 
         print(np.mean(resDataI), np.min(resDataI), np.max(resDataI))
-        self.saveFig(resDataI[::3, ::3], "./pic/%s/all/%s_I.png" % (self.polar, self.name.split('.')[0]))
+        self.saveFig(resDataI[::3, ::3], "./pic/%s/all/%s_I" % (self.polar, self.name.split('.')[0]))
 
         resDataI = []
         resDataQ = np.zeros((rangelength, azimuthLength))
@@ -142,4 +148,4 @@ class SLCProcessor:
             index += 1
 
         print(np.mean(resDataQ), np.min(resDataQ), np.max(resDataQ))
-        self.saveFig(resDataQ[::3, ::3], "./pic/%s/all/%s_Q.png" % (self.polar, self.name.split('.')[0]))
+        self.saveFig(resDataQ[::3, ::3], "./pic/%s/all/%s_Q" % (self.polar, self.name.split('.')[0]))

@@ -7,7 +7,7 @@ class SPCreator:
     def __init__(self, binFile):
         self.binFile = binFile
         self.spacePacketsLengthMAX = 2000000
-        self.startIndex = 51151
+        self.startIndex = 0
         
 
     # save data range by range
@@ -39,8 +39,8 @@ class SPCreator:
             getLogger("spacePacketCreator").info("index=%d|spacePacket.NumberOfQuads=%d|spacePacket.packetDataLength=%d" % (i, packet0.NumberOfQuads, packet0.packetDataLength)) 
             readDataSize += packet0.packetDataLength + 1 + 6
             # 
-            if not packet0.isEcho() or i < self.startIndex:
-                getLogger("spacePacketCreator").info("index=%d|type:%d" % (i, packet0.signalType))
+            if (not packet0.isEcho()) or (not packet0.isMeasurementMode()): # or i < self.startIndex:
+                getLogger("spacePacketCreator").warn("index=%d|type:%d|isEcho=%d|isMM=%d" % (i, packet0.signalType, packet0.isEcho(), packet0.testMode))
                 self.binFile.read(packet0.packetDataLength - 61)
                 continue
 
@@ -52,11 +52,11 @@ class SPCreator:
             # Space Packet Length = Multiple of 4 Octets
 
             # one list, one ISampleValue length
-            if len(packets) == 0 or packets[0].SWL == packet0.SWL:
+            if len(packets) == 0 or packets[0].swathNumber == packet0.swathNumber:
                 packets.append(packet0)
             else:
-                getLogger("spacePacketCreator").info("index=%d|one kind|smaple len=%d" % 
-                    (i, packet0.QSampleValue.shape[0]))
+                getLogger("spacePacketCreator").info("index=%d|one kind|Sample len=%d|swathNumber change:  %d->%d" % (i, packet0.QSampleValue.shape[0], packets[0].swathNumber, packet0.swathNumber))
+                
                 self.saveOneRangeData(i, packets)
                 packets = [packet0]
                 

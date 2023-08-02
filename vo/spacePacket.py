@@ -23,6 +23,9 @@ class SpacePacket:
     #
     def isEcho(self):
         return self.signalType == 0
+    
+    def isMeasurementMode(self):
+        return self.testMode == 0
 
 
     def saveTHIDX(self, thidx):
