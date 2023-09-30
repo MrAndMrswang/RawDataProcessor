@@ -46,10 +46,10 @@ class SLCProcessor:
             resData[::, index] = res
             index += 1
         
-        resData = np.fliplr(np.flipud(np.abs(resData[::3, ::3])))
-        # resData = np.fliplr(np.flipud(np.abs(resData)))
+        
+        resDataTemp = np.fliplr(np.flipud(np.abs(resData)))
         figName = "./pic/%s/all/%s_range" % (self.polar, self.name.split('.')[0])
-        self.saveFig(resData, figName)
+        self.saveFig(resDataTemp, figName, 1400)
         return resData
 
 
@@ -73,13 +73,12 @@ class SLCProcessor:
         tempMat = np.fliplr(np.flipud(np.abs(tempMat)))
         getLogger("SLCProcessing").info("azimuthCompress=%s|ready to plot" % self.name)
         self.showALL(tempMat)
-        self.showPart(tempMat)
+        # self.showPart(tempMat)
         
 
     def showALL(self, tempMat):
-        # tempMat = tempMat[::3, ::3]
         figName = "./pic/%s/all/%s_all" % (self.polar, self.name.split('.')[0])
-        self.saveFig(tempMat, figName)
+        self.saveFig(tempMat, figName, 2*10**8)
 
 
     def showPart(self, tempMat):
@@ -95,13 +94,17 @@ class SLCProcessor:
            self.saveFig(showMat, figName)
 
 
-    def saveFig(self, data, figName):
+    def saveFig(self, data, figName, vmax0):
         sio.savemat(figName+'.mat', {'data': data})
 
+        data = data[::3, ::3]
         scale = 100
         (r1, c1) = data.shape
         fig = plt.figure(figsize=(scale*c1/r1, scale), dpi=128)
-        plt.pcolor(data, vmin = 0, vmax = 1400)
+        # plt.pcolor(data, vmin = 0, vmax = 1400)
+        # plt.pcolor(data, vmin = 0, vmax = 2*10**8)
+        plt.pcolor(data, vmin = 0, vmax = vmax0)
+        
         plt.colorbar()
         plt.savefig(figName+'.png')
         fig.clf()
