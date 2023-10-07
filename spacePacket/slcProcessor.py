@@ -47,9 +47,9 @@ class SLCProcessor:
             index += 1
         
         
-        resDataTemp = np.fliplr(np.flipud(np.abs(resData)))
-        figName = "./pic/%s/all/%s_range" % (self.polar, self.name.split('.')[0])
-        self.saveFig(resDataTemp, figName, 1400)
+        # resDataTemp = np.fliplr(np.flipud(np.abs(resData)))
+        # figName = "./pic/%s/all/%s_range" % (self.polar, self.name.split('.')[0])
+        # self.saveFig(resDataTemp, figName, 1400)
         return resData
 
 
@@ -73,7 +73,7 @@ class SLCProcessor:
         tempMat = np.fliplr(np.flipud(np.abs(tempMat)))
         getLogger("SLCProcessing").info("azimuthCompress=%s|ready to plot" % self.name)
         self.showALL(tempMat)
-        # self.showPart(tempMat)
+        self.showPart(tempMat)
         
 
     def showALL(self, tempMat):
@@ -91,7 +91,7 @@ class SLCProcessor:
         for index in range(60):
            figName = "%s/%d" % (dir0, index)
            showMat = tempMat[index*picNum:(index+1)*picNum, ::]
-           self.saveFig(showMat, figName)
+           self.saveFig(showMat, figName, 2*10**8)
 
 
     def saveFig(self, data, figName, vmax0):
