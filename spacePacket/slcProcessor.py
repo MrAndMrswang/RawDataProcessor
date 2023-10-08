@@ -32,7 +32,7 @@ class SLCProcessor:
         index = 0
         for packet in packets:
             samplePoint = packet.SamplingFrequencyAfterDecimation * packet.TXPL
-            tim = np.linspace(-packet.TXPL / 2, packet.TXPL / 2,  int(samplePoint))
+            tim = np.linspace(-packet.TXPL / 2, packet.TXPL / 2, int(samplePoint))
             phi1 = packet.TXPSF + packet.TXPRR * packet.TXPL / 2
             phi2 = packet.TXPRR / 2
             chirpReplica = np.exp(-1j*2*np.pi*(phi1*tim + phi2*tim**2))
@@ -58,26 +58,55 @@ class SLCProcessor:
         # get azimuth chirp
         rangelength, azimuthLength = rangeCompressMat.shape
         getLogger("SLCProcessing").info("rangelength=%d|azimuthLength=%d" % (rangelength, azimuthLength))
-        tempMat = rangeCompressMat.copy()
-        zeros0 = np.zeros(tempMat[::, 0:300].shape)
-        tempMat[::, 0:300] = zeros0
-        tempMat[::, azimuthLength-300:azimuthLength] = zeros0
-        maxPos = np.unravel_index(np.argmax(np.abs(tempMat)), tempMat.shape)
-        mychirp = rangeCompressMat[maxPos[0], maxPos[1]-300 : maxPos[1]+300]
-        for i in range(rangelength):
-            temp = np.correlate(mychirp, rangeCompressMat[i, ::], mode='full')
-            temp = temp[math.floor(len(mychirp)/2) : 
-                      azimuthLength + math.floor(len(mychirp)/2)]
-            tempMat[i, ::] = temp
+        for biasIndex in range(10):
+            tempMat = rangeCompressMat.copy()
+            tempMatLen = 640 + biasIndex*3
+            zeros0 = np.zeros(tempMat[::, 0:tempMatLen].shape)
+            tempMat[::, 0:tempMatLen] = zeros0
+            tempMat[::, azimuthLength-tempMatLen:azimuthLength] = zeros0
+            maxPos = np.unravel_index(np.argmax(np.abs(tempMat)), tempMat.shape)
+            mychirp = rangeCompressMat[maxPos[0], maxPos[1]-tempMatLen: maxPos[1]+tempMatLen]
+            for i in range(rangelength):
+                temp = np.correlate(mychirp, rangeCompressMat[i, ::], mode='full')
+                temp = temp[math.floor(len(mychirp)/2) : 
+                        azimuthLength + math.floor(len(mychirp)/2)]
+                tempMat[i, ::] = temp
+            
+            tempMat = np.fliplr(np.flipud(np.abs(tempMat)))
+            getLogger("SLCProcessing").info("azimuthCompress=%s|ready to plot" % self.name)
+            self.showALL(tempMatLen, 0, tempMat)
         
-        tempMat = np.fliplr(np.flipud(np.abs(tempMat)))
-        getLogger("SLCProcessing").info("azimuthCompress=%s|ready to plot" % self.name)
-        self.showALL(tempMat)
-        self.showPart(tempMat)
+        # self.showPart(tempMat)
         
+    # azimuth compress 增加矩阵补零
+    # def azimuthCompress(self, rangeCompressMat):
+    #     # get azimuth chirp
+    #     rangelength, azimuthLength = rangeCompressMat.shape
+    #     getLogger("SLCProcessing").info("rangelength=%d|azimuthLength=%d" % (rangelength, azimuthLength))
+    #     tempMat = rangeCompressMat.copy()
+    #     tempMatLen = 705
+    #     zeros0 = np.zeros(tempMat[::, 0:tempMatLen].shape)
+    #     tempMat[::, 0:tempMatLen] = zeros0
+    #     tempMat[::, azimuthLength-tempMatLen:azimuthLength] = zeros0
+    #     maxPos = np.unravel_index(np.argmax(np.abs(tempMat)), tempMat.shape)
+    #     mychirp = rangeCompressMat[maxPos[0], maxPos[1]-tempMatLen : maxPos[1]+tempMatLen]
 
-    def showALL(self, tempMat):
-        figName = "./pic/%s/all/%s_all" % (self.polar, self.name.split('.')[0])
+    #     tempMat = np.zeros((rangelength, azimuthLength+2*tempMatLen-1))
+    #     tempMat = tempMat + 1j*tempMat
+    #     print('tempMat.shape:', tempMat.shape)
+    #     print('mychirp.shape:', mychirp.shape)
+    #     print('rangeCompressMat.shape:', rangeCompressMat.shape)
+    #     for i in range(rangelength):
+    #         temp = np.correlate(mychirp, rangeCompressMat[i, ::], mode='full')
+    #         tempMat[i, ::] = temp
+        
+    #     tempMat = np.fliplr(np.flipud(np.abs(tempMat)))
+    #     getLogger("SLCProcessing").info("azimuthCompress=%s|ready to plot" % self.name)
+    #     self.showALL(tempMat)
+    #     # self.showPart(tempMat)
+
+    def showALL(self, tempMatLen, bias, tempMat):
+        figName = "./pic/%s/all/%s_all_%d_%d" % (self.polar, self.name.split('.')[0], tempMatLen, bias)
         self.saveFig(tempMat, figName, 2*10**8)
 
 
