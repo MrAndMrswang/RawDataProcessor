@@ -87,7 +87,11 @@ class SPDecoder:
         packet.syncMarker = self.getBytesFromBinFile(4)
         packet.dataTakeID = self.getBytesFromBinFile(4)
         packet.eccNumber = self.getBytesFromBinFile(1)
+
+        # TestMode
         packet.testMode = int.from_bytes(self.getBytesFromBinFile(1), byteorder='big')
+        packet.testMode = packet.testMode & 0b00001110
+
         packet.instrumentConfigurationID = self.getBytesFromBinFile(4)
         getLogger("spacePacketCreator").info(("testMode_int=%s") % ('{:08b}'.format(packet.testMode)))
 
