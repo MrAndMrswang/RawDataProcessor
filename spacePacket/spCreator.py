@@ -40,7 +40,7 @@ class SPCreator:
             readDataSize += packet0.packetDataLength + 1 + 6
             # 
             if (not packet0.isEcho()) or (not packet0.isMeasurementMode()): # or i < self.startIndex:
-                getLogger("spacePacketCreator").warn("index=%d|type:%d|isEcho=%d|isMM=%d" % (i, packet0.signalType, packet0.isEcho(), packet0.testMode))
+                getLogger("spacePacketCreator").warn("index=%d|type:%d|isEcho=%d|isMM=%d" % (i, packet0.signalType, packet0.isEcho(), packet0.isMeasurementMode()))
                 self.binFile.read(packet0.packetDataLength - 61)
                 continue
 
