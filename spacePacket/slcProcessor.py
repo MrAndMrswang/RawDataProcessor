@@ -20,7 +20,16 @@ class SLCProcessor:
         getLogger("SLCProcessing").info("npyFile=%s|packets len = %d" % (self.name, len(packets)))
 
         rangeCompressMat = self.rangeCompress(packets)
-        self.azimuthCompress(rangeCompressMat)
+        # all
+        # self.azimuthCompress(rangeCompressMat)
+
+        # focus target
+        # D3A7 Areas
+        # targetAreas = np.array([[4200, 4280, 650, 1110]])
+
+        # 5F42 Areas
+        targetAreas = np.array([[10600, 10690, 650, 1050]])
+        self.azimuthCompressTarget(rangeCompressMat, targetAreas)
 
 
     # range compress
@@ -48,6 +57,7 @@ class SLCProcessor:
         
         
         # resDataTemp = np.fliplr(np.flipud(np.abs(resData)))
+        # resDataTemp = np.abs(resData)
         # figName = "./pic/%s/all/%s_range" % (self.polar, self.name.split('.')[0])
         # self.saveFig(resDataTemp, figName, 1400)
         return resData
@@ -58,56 +68,63 @@ class SLCProcessor:
         # get azimuth chirp
         rangelength, azimuthLength = rangeCompressMat.shape
         getLogger("SLCProcessing").info("rangelength=%d|azimuthLength=%d" % (rangelength, azimuthLength))
-        for biasIndex in range(10):
-            tempMat = rangeCompressMat.copy()
-            tempMatLen = 640 + biasIndex*3
-            zeros0 = np.zeros(tempMat[::, 0:tempMatLen].shape)
-            tempMat[::, 0:tempMatLen] = zeros0
-            tempMat[::, azimuthLength-tempMatLen:azimuthLength] = zeros0
-            maxPos = np.unravel_index(np.argmax(np.abs(tempMat)), tempMat.shape)
-            mychirp = rangeCompressMat[maxPos[0], maxPos[1]-tempMatLen: maxPos[1]+tempMatLen]
-            for i in range(rangelength):
-                temp = np.correlate(mychirp, rangeCompressMat[i, ::], mode='full')
-                temp = temp[math.floor(len(mychirp)/2) : 
-                        azimuthLength + math.floor(len(mychirp)/2)]
-                tempMat[i, ::] = temp
-            
-            tempMat = np.fliplr(np.flipud(np.abs(tempMat)))
-            getLogger("SLCProcessing").info("azimuthCompress=%s|ready to plot" % self.name)
-            self.showALL(tempMatLen, 0, tempMat)
+        
+        tempMat = rangeCompressMat.copy()
+        tempMatLen = 620
+        zeros0 = np.zeros(tempMat[::, 0:tempMatLen].shape)
+        tempMat[::, 0:tempMatLen] = zeros0
+        tempMat[::, azimuthLength-tempMatLen:azimuthLength] = zeros0
+        maxPos = np.unravel_index(np.argmax(np.abs(tempMat)), tempMat.shape)
+        mychirp = rangeCompressMat[maxPos[0], maxPos[1]-tempMatLen: maxPos[1]+tempMatLen]
+        for i in range(rangelength):
+            temp = np.correlate(mychirp, rangeCompressMat[i, ::], mode='full')
+            temp = temp[math.floor(len(mychirp)/2) : 
+                    azimuthLength + math.floor(len(mychirp)/2)]
+            tempMat[i, ::] = temp
+        
+        # tempMat = np.fliplr(np.flipud(np.abs(tempMat)))
+        tempMat = np.abs(tempMat)
+        getLogger("SLCProcessing").info("azimuthCompress=%s|ready to plot" % self.name)
+        self.showALL(tempMatLen, 0, tempMat)
         
         # self.showPart(tempMat)
-        
-    # azimuth compress 增加矩阵补零
-    # def azimuthCompress(self, rangeCompressMat):
-    #     # get azimuth chirp
-    #     rangelength, azimuthLength = rangeCompressMat.shape
-    #     getLogger("SLCProcessing").info("rangelength=%d|azimuthLength=%d" % (rangelength, azimuthLength))
-    #     tempMat = rangeCompressMat.copy()
-    #     tempMatLen = 705
-    #     zeros0 = np.zeros(tempMat[::, 0:tempMatLen].shape)
-    #     tempMat[::, 0:tempMatLen] = zeros0
-    #     tempMat[::, azimuthLength-tempMatLen:azimuthLength] = zeros0
-    #     maxPos = np.unravel_index(np.argmax(np.abs(tempMat)), tempMat.shape)
-    #     mychirp = rangeCompressMat[maxPos[0], maxPos[1]-tempMatLen : maxPos[1]+tempMatLen]
 
-    #     tempMat = np.zeros((rangelength, azimuthLength+2*tempMatLen-1))
-    #     tempMat = tempMat + 1j*tempMat
-    #     print('tempMat.shape:', tempMat.shape)
-    #     print('mychirp.shape:', mychirp.shape)
-    #     print('rangeCompressMat.shape:', rangeCompressMat.shape)
-    #     for i in range(rangelength):
-    #         temp = np.correlate(mychirp, rangeCompressMat[i, ::], mode='full')
-    #         tempMat[i, ::] = temp
+      # azimuth compress
+    def azimuthCompressTarget(self, rangeCompressMat, targetAreas):
+        # get azimuth chirp
+        rangelength, azimuthLength = rangeCompressMat.shape
+        getLogger("SLCProcessing").info("rangelength=%d|azimuthLength=%d" % (rangelength, azimuthLength))
+        tempMatLen = 620
+
+        tempMat = rangeCompressMat.copy()
+        zeros0 = np.zeros(tempMat[::, 0:tempMatLen].shape)
+        tempMat[::, 0:tempMatLen] = zeros0
+        tempMat[::, azimuthLength-tempMatLen:azimuthLength] = zeros0
+        maxPos = np.unravel_index(np.argmax(np.abs(tempMat)), tempMat.shape)
+        mychirp = rangeCompressMat[maxPos[0], maxPos[1]-tempMatLen: maxPos[1]+tempMatLen]
+        tempMat = np.zeros(rangeCompressMat.shape, dtype = "complex_")
+        # 设置areas
+        areasNum, tmp0 = targetAreas.shape
+        for i in range(areasNum):
+            tempMat[targetAreas[i, 0]: targetAreas[i, 1], targetAreas[i, 2]: targetAreas[i, 3]] = \
+                rangeCompressMat[targetAreas[i, 0]: targetAreas[i, 1], targetAreas[i, 2]: targetAreas[i, 3]]
+
+        for i in range(rangelength):
+            temp = np.correlate(mychirp, tempMat[i, ::], mode='full')
+            temp = temp[math.floor(len(mychirp)/2) : azimuthLength + math.floor(len(mychirp)/2)]
+            tempMat[i, ::] = temp
         
-    #     tempMat = np.fliplr(np.flipud(np.abs(tempMat)))
-    #     getLogger("SLCProcessing").info("azimuthCompress=%s|ready to plot" % self.name)
-    #     self.showALL(tempMat)
-    #     # self.showPart(tempMat)
+        # tempMat = np.fliplr(np.flipud(np.abs(tempMat)))
+        tempMat = np.abs(tempMat)
+        getLogger("SLCProcessing").info("azimuthCompress=%s|ready to plot" % self.name)
+        self.showALL(tempMatLen, 0, tempMat)
+        
+        # self.showPart(tempMat)  
+
 
     def showALL(self, tempMatLen, bias, tempMat):
-        figName = "./pic/%s/all/%s_all_%d_%d" % (self.polar, self.name.split('.')[0], tempMatLen, bias)
-        self.saveFig(tempMat, figName, 2*10**8)
+        figName = "./pic/%s/all/%s_all_%d_%d_target" % (self.polar, self.name.split('.')[0], tempMatLen, bias)
+        self.saveFig(tempMat, figName, 7*10**6)
 
 
     def showPart(self, tempMat):
